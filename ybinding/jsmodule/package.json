@@ -1,0 +1,7 @@
+{
+  "name": "woogeen",
+  "description": "Intel® Collaboration Suite for WebRT",
+  "version": "0.0.1",
+  "author": "Zhenyu Liang <zhenyu.liang@intel.com> (http://webrtc.intel.com)",
+  "main": "./woogeen.js"
+}

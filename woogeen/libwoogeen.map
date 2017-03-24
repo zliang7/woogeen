@@ -1,0 +1,40 @@
+{
+global:
+    extern "C++" {
+        woogeen::base::AudioPlayerInterface::*;
+        woogeen::base::DeviceUtils::*;
+        woogeen::base::Exception::*;
+        woogeen::base::GlobalConfiguration::*;
+        woogeen::base::LocalCameraStream::*;
+        woogeen::base::LocalCameraStreamParameters::*;
+        woogeen::base::LocalCustomizedStream::*;
+        woogeen::base::LocalCustomizedStreamParameters::*;
+        woogeen::base::LocalStream::*;
+        woogeen::base::Logging::*;
+        woogeen::base::RemoteCameraStream::*;
+        woogeen::base::RemoteScreenStream::*;
+        woogeen::base::RemoteStream::*;
+        woogeen::base::Stream::*;
+        woogeen::base::StreamException::*;
+        woogeen::base::VideoDecoderInterface::*;
+        woogeen::base::VideoEncoderInterface::*;
+        woogeen::conference::ConferenceClient::*;
+        woogeen::conference::ConferenceException::*;
+        woogeen::conference::RemoteMixedStream::*;
+        vtable?for?woogeen::base::AudioPlayerInterface;
+        vtable?for?woogeen::base::LocalCameraStream;
+        vtable?for?woogeen::base::LocalCustomizedStream;
+        vtable?for?woogeen::base::LocalStream;
+        vtable?for?woogeen::base::RemoteCameraStream;
+        vtable?for?woogeen::base::RemoteScreenStream;
+        vtable?for?woogeen::base::RemoteStream;
+        vtable?for?woogeen::base::Stream;
+        vtable?for?woogeen::base::VideoDecoderInterface;
+        vtable?for?woogeen::base::VideoEncoderInterface;
+        vtable?for?woogeen::conference::ConferenceClient;
+        vtable?for?woogeen::conference::ConferenceSocketSignalingChannelObserver;
+        vtable?for?woogeen::conference::RemoteMixedStream;
+    };
+local:
+    *;
+};

@@ -1,0 +1,240 @@
+//////////////////////// mediaformat.h
+
+enum AudioCodec {
+  "OPUS",
+  "ISAC",
+  "G722",
+  "PCMU",
+  "PCMA"
+};
+enum VideoCodec {
+  "I420",
+  "VP8",
+  "VP9",
+  "H264",
+  "H265"
+};
+[NoInterfaceObject]
+interface MediaCodec {
+  attribute VideoCodec videoCodec;
+  attribute AudioCodec audioCodec;
+};
+[NoInterfaceObject]
+interface Resolution {
+  attribute long width;
+  attribute long height;
+};
+[NoInterfaceObject]
+interface VideoFormat {
+  attribute Resolution resolution;
+};
+                        
+//////////////////////// localcamerastreamparameters.h
+
+dictionary LocalCameraStreamParameters {
+  DOMString   cameraID;
+  DOMString?  streamName;
+  Resolution? resolution;
+  long?       fps = 30;
+  boolean?    videoEnabled = true;
+  boolean?    audioEnabled = true;
+};
+
+dictionary LocalCustomStreamParameters {
+  boolean videoEnabled = true;
+  boolean audioEnabled = true;
+};
+
+//////////////////////// framegeneratorinterface.h
+
+[NoInterfaceObject]
+interface AudioFrameGenerator {
+  unsigned long generateFramesForNext10ms(Uint8Array buffer);
+  readonly attribute long sampleRate;
+  readonly attribute long channelNumber;
+};
+
+[NoInterfaceObject]
+interface VideoFrameGenerator {
+  unsigned long generateNexFrame(Uint8Array buffer);
+  readonly attribute unsigned long nextFrameSize;
+  readonly attribute long height;
+  readonly attribute long width;
+  readonly attribute long fps;
+  readonly attribute VideoCodec type;
+};
+
+//////////////////////// videorendererinterface.h
+
+[NoInterfaceObject]
+interface VideoRenderer {
+  // TODO
+};
+
+//////////////////////// stream.h
+
+[NoInterfaceObject]
+interface Stream {
+  readonly attribute DOMString id;
+  void disableAudio();
+  void enableAudio();
+  void disableVideo();
+  void enableVideo();
+  void attachVideoRenderer(VideoRenderer renderer);
+  void detachVideoRenderer(VideoRenderer renderer);
+/*void attachAudioPlayer(AudioPlayer player);
+  void detachAudioPlayer(AudioPlayer player);*/
+};
+[NoInterfaceObject]
+interface LocalStream: Stream {
+};
+[NoInterfaceObject]
+interface RemoteStream: Stream {
+  readonly attribute DOMString from;
+};
+
+[Constructor(LocalCameraStreamParameters parameters)]
+interface LocalCameraStream : LocalStream {
+  void close();
+};
+
+//[Constructor(LocalCustomStreamParameters parameters, VideoFrameGenerator framer)]
+[Constructor(LocalCustomStreamParameters parameters)]
+interface LocalCustomStream : LocalStream {
+};
+
+//////////////////////// clientconfiguration.h
+
+[NoInterfaceObject]
+interface IceServer {
+  attribute DOMString[] urls;
+  attribute DOMString   username;
+  attribute DOMString   password;
+};
+dictionary ClientConfiguration {
+  IceServer[] iceServers;
+  MediaCodec  mediaCodec;
+  long?       maxAudioBandwidth = 0;
+  long?       maxVideoBandwidth = 0;
+};
+
+//////////////////////// connectionstats.h
+
+[NoInterfaceObject]
+interface AudioSenderReport {
+  attribute long long  bytesSent;
+  attribute long       packetsSent;
+  attribute long       packetsLost;
+  attribute long long  roundtripTime;
+  attribute AudioCodec codec;
+};
+[NoInterfaceObject]
+interface AudioReceiverReport {
+  attribute long long  bytesReceived;
+  attribute long       packetsReceived;
+  attribute long       packetsLost;
+  attribute long       estimatedDelay;
+  attribute AudioCodec codec;
+};
+[NoInterfaceObject]
+interface VideoSenderReport {
+  attribute long long  bytesSent;
+  attribute long       packetsSent;
+  attribute long       packetsLost;
+  attribute long       firCount;
+  attribute long       pliCount;
+  attribute long       nackCount;
+  attribute Resolution frameResolutionSent;
+  attribute long       framerateSent;
+  attribute long       lastAdaptReason;
+  attribute long       adaptChanges;
+  attribute long long  roundtripTime;
+  attribute VideoCodec codec;
+};
+[NoInterfaceObject]
+interface VideoReceiverReport {
+  attribute long long  bytesReceived;
+  attribute long       packetsReceived;
+  attribute long       packetsLost;
+  attribute long       firCount;
+  attribute long       pliCount;
+  attribute long       nackCount;
+  attribute Resolution frameResolutionReceived;
+  attribute long       framerateReceived;
+  attribute long       framerateOutput;
+  attribute long       delay;
+  attribute VideoCodec codec;
+};
+[NoInterfaceObject]
+interface VideoBandwidthStats {
+  attribute long availableSendBandwidth;
+  attribute long availableReceivedBandwidth;
+  attribute long transmitBitrate;
+  attribute long retransmitBitrate;
+};
+[NoInterfaceObject]
+interface ConnectionStats {
+  attribute DOMTimeStamp          timestamp;
+  attribute VideoBandwidthStats   videoBandwidthStats;
+  attribute AudioSenderReport[]   audioSenderReports;
+  attribute AudioReceiverReport[] audioReceiverReports;
+  attribute VideoSenderReport[]   videoSenderReports;
+  attribute VideoReceiverReport[] videoReceiverReports;
+};
+
+//////////////////////// user.h
+
+[NoInterfaceObject]
+interface Permission {
+  attribute boolean canPublish;
+  attribute boolean canRecord;
+  attribute boolean canSubscribe;
+};
+[NoInterfaceObject]
+interface User {
+  attribute DOMString  id;
+  attribute DOMString  name;
+  attribute DOMString  role;
+  attribute Permission permissions;
+};
+
+//////////////////////// subscribeoptions.h
+
+dictionary SubscribeOptions {
+  Resolution resolution;
+};
+
+//////////////////////// conferenceclient.h
+
+dictionary ConferenceClientConfiguration : ClientConfiguration {
+};
+
+[Constructor(ConferenceClientConfiguration configuration)]
+interface ConferenceClient : EventTarget {
+  Promise<User> join(DOMString token);
+  Promise<void> publish(LocalStream stream);
+  Promise<RemoteStream> subscribe(RemoteStream stream, optional SubscribeOptions options);
+  Promise<void> unpublish(LocalStream stream);
+  Promise<void> unsubscribe(RemoteStream stream);
+  Promise<void> send(DOMString message, optional DOMString receiver);
+  Promise<void> playAudio(Stream stream);
+  Promise<void> pauseVideo(Stream stream);
+  Promise<void> playVideo(Stream stream);
+  Promise<void> pauseAudio(Stream stream);
+  Promise<void> leave();
+  Promise<DOMString> getRegion(RemoteStream stream);
+  Promise<void> setRegion(RemoteStream stream, DOMString regionId);
+  Promise<ConnectionStats> getConnectionStats(Stream stream);
+};
+
+//////////////////////// namespace
+
+interface Woogeen {
+  readonly attribute ConferenceClient ConferenceClient;
+  readonly attribute LocalCameraStream LocalCameraStream;
+  readonly attribute LocalCustomStream LocalCustomStream;
+  attribute AudioFrameGenerator audioFrameGenerator;
+/*attribute VideoEncoder videoEncoder;
+  attribute VideoDecoder videoDecoder;*/
+  record<DOMString, Resolution> getVideoCaptureDevices();
+};
