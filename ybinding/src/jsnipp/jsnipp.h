@@ -1,5 +1,5 @@
 /*
- * Copyright © 2017 Intel Corporation. All Rights Reserved.
+ * Copyright © 2016 Intel Corporation. All Rights Reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -24,40 +24,10 @@
  * ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-/*
- * yunosaudioplayer.h
- *
- * A YunOS-specific implementation of AudioPlayerInterface.
- * Streams audio to YunOS through the AudioRender API.
- *
- * author: Nathaniel Chen
- */
-
-#ifndef YUNOS_AUDIO_PLAYER_H_
-#define YUNOS_AUDIO_PLAYER_H_
-
-#include <woogeen/base/audioplayerinterface.h>
-#include <memory>
-#include <audio/AudioRender.h>
-
-class YunOSAudioPlayer : public woogeen::base::AudioPlayerInterface {
-
-  public:
-    // @brief Constructor
-    YunOSAudioPlayer(std::unique_ptr<YunOS::AudioRender>);
-
-    // @brief Destructor stops the stream
-    ~YunOSAudioPlayer();
-
-    // @brief Instantiate audio player and initialize, starts stream
-    __attribute__ ((visibility("default")))
-    static std::unique_ptr<YunOSAudioPlayer> Create();
-
-    // @brief Play raw PCM audio through device
-    void PlayAudio(std::unique_ptr<woogeen::base::PCMRawBuffer> buffer) override;
-
-  private:
-    std::unique_ptr<YunOS::AudioRender> yAudioRender;
-};
-
-#endif //YUNOS_AUDIO_PLAYER_H_
+#include "jsvalue.h"
+#include "jsprimitive.h"
+#include "jsobject.h"
+#include "jsarray.h"
+#include "jsfunction.h"
+#include "jsconstructor.h"
+#include "jsexception.h"

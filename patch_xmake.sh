@@ -34,4 +34,4 @@ while read -r line; do
     echo "$line"
 done < "$xmake.orig" > "$xmake"
 
-ln -sf "$dir" "$root/third-party/webrtc"
+ln -sf "$dir" "$root/third_party/webrtc"

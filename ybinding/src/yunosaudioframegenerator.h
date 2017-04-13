@@ -49,6 +49,7 @@ class YunOSAudioFrameGenerator : public woogeen::base::AudioFrameGeneratorInterf
     ~YunOSAudioFrameGenerator();
 
     // @brief Instantiate and start an audio capture stream
+    __attribute__ ((visibility("default")))
     static std::unique_ptr<YunOSAudioFrameGenerator> Create();
 
     // @brief Capture audio 10 milliseconds at a time

@@ -1,5 +1,5 @@
 /*
- * Copyright © 2017 Intel Corporation. All Rights Reserved.
+ * Copyright © 2016 Intel Corporation. All Rights Reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -23,41 +23,48 @@
  * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF
  * ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
+#pragma once
 
-/*
- * yunosaudioplayer.h
- *
- * A YunOS-specific implementation of AudioPlayerInterface.
- * Streams audio to YunOS through the AudioRender API.
- *
- * author: Nathaniel Chen
- */
+#include <string>
 
-#ifndef YUNOS_AUDIO_PLAYER_H_
-#define YUNOS_AUDIO_PLAYER_H_
+#include <jsni.h>
 
-#include <woogeen/base/audioplayerinterface.h>
-#include <memory>
-#include <audio/AudioRender.h>
+#include "jsvalue.h"
 
-class YunOSAudioPlayer : public woogeen::base::AudioPlayerInterface {
+namespace jsnipp {
 
-  public:
-    // @brief Constructor
-    YunOSAudioPlayer(std::unique_ptr<YunOS::AudioRender>);
+namespace {
 
-    // @brief Destructor stops the stream
-    ~YunOSAudioPlayer();
-
-    // @brief Instantiate audio player and initialize, starts stream
-    __attribute__ ((visibility("default")))
-    static std::unique_ptr<YunOSAudioPlayer> Create();
-
-    // @brief Play raw PCM audio through device
-    void PlayAudio(std::unique_ptr<woogeen::base::PCMRawBuffer> buffer) override;
-
-  private:
-    std::unique_ptr<YunOS::AudioRender> yAudioRender;
+typedef void (*JSNINativeInterface::*Thrower)(const char*);
+constexpr static Thrower trampoline[] = {
+    &JSNINativeInterface::ThrowErrorException,
+    &JSNINativeInterface::ThrowTypeErrorException,
+    &JSNINativeInterface::ThrowRangeErrorException
 };
 
-#endif //YUNOS_AUDIO_PLAYER_H_
+}
+
+enum ErrorType {
+    Error = 0,
+    TypeError,
+    RangeError
+};
+
+template<int type>
+class JSException final {
+public:
+    JSException(const std::string& message): message_(message) {}
+    void raise() const {
+        (JSValue::env_->*trampoline[type])(message_.c_str());
+    }
+
+    static bool checkAndClear() {
+        //return JSValue::env_->ErrorCheck(); FIXME
+        return false;
+    }
+
+private:
+    std::string message_;
+};
+
+}

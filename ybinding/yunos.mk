@@ -6,21 +6,27 @@ LOCAL_MODULE := woogeen_jsni
 LOCAL_CALL_BY_XMAKE_CONF := true
 
 LOCAL_SRC_FILES := \
-	src/bindings.cc \
+	src/jsbinding.cc \
 	src/fileaudioframegenerator.cc \
 	src/filevideoframegenerator.cc \
 	src/yunosaudioframegenerator.cc \
 	src/yunosaudioplayer.cc
 
+LOCAL_SRC_FILES += \
+        src/jsnipp/jsvalue.cc \
+        src/jsnipp/jsprimitive.cc \
+        src/jsnipp/jsobject.cc
+
 #LOCAL_SRC_FILES += $(wildcard src/dummy/*.cc)
 
 # Flags passed to both C and C++ files.
-LOCAL_CXXFLAGS := -std=c++11 -Wno-unused-variable -Wno-unused-result
+LOCAL_CXXFLAGS := -std=c++11 -fvisibility=hidden -Wno-unused-variable -Wno-unused-result
 
 # Include paths placed before CFLAGS/CPPFLAGS
 LOCAL_C_INCLUDES := \
 	. \
 	$(LOCAL_PATH)/include/jsni \
+	$(LOCAL_PATH)/src/jsnipp \
 	$(XMAKE_ROOTFS)/usr/include \
 	$(audioserver-includes) \
 	$(base-includes) \
@@ -34,7 +40,7 @@ LOCAL_REQUIRED_MODULES += woogeen
 endif
 
 LOCAL_SHARED_LIBRARIES += libbase liblog libaudio libcore_foundation
-LOCAL_LDFLAGS += -ljsni_async_stub -lwoogeen
+LOCAL_LDFLAGS += -lwoogeen
 
 LOCAL_COMPILE_SHELL_CMD := \
 	mkdir -p $(XMAKE_ROOTFS)/usr/framework/woogeen \

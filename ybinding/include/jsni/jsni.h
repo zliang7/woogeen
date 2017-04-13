@@ -24,1058 +24,587 @@
 // (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-// Author: Jin Yue; Yu Chaojun
-
 #ifndef _JSNI_H
 #define _JSNI_H
+
 #include <stdlib.h>
 #include <string.h>
 #include <stddef.h>
 #include <stdint.h>
 #include <stdio.h>
+#include <stdbool.h>
 
-namespace jsni {
-// Everything here should be VM-neutral.
+// JS type.
+typedef struct _JsValue* JsValue;
 
-// TODO(jiny). Env should have function pointers and isolate both.
-// So in call method call, it should be: env->functions->METHOD().
+// JSNI interface extended.
+struct _JSNIEnv;
 
-struct JSNINativeInterface;
-typedef JSNINativeInterface JSNIEnv;
-
-
-typedef void* JsLocal;
-typedef void* JsGlobal;
-typedef void* ContextRef;
-typedef void* RuntimeRef;
-typedef void* JsScope;
-
-class JsValue;
-class JsNumber;
-class JsBoolean;
-class JsObject;
-class JsFunction;
-class JsString;
-class JsTypedArray;
-class JsGlobalRef;
-
-class JsRuntime;
-class JsContext;
-class LocalRefScope;
-
-class GCCallbackInfo;
-class NativeCallbackInfo;
-class PropertyInfo;
+typedef const struct JSNINativeInterface JSNIEnv;
 
 
-typedef void (*GCCallback)(JSNIEnv* env, const GCCallbackInfo& info);
-typedef void (*NativeFunctionCallback)(JSNIEnv* env, const NativeCallbackInfo& info);
-typedef void (*GetterCallback)(JSNIEnv* env, JsValue *name, const PropertyInfo& info);
-typedef void (*SetterCallback)(JSNIEnv* env, JsValue *name, JsValue val,
-             const PropertyInfo& info);
+// Callback helper types.
+typedef void (*JSNIGCCallback)(JSNIEnv* env, void* info);
 
+typedef struct _CallbackInfo* CallbackInfo;
+typedef void (*NativeFunctionCallback)(JSNIEnv* env, const CallbackInfo info);
+
+typedef struct _JsGlobalValue* JsGlobalValue;
+
+// Type array.
 typedef enum _JsTypedArrayType {
-  // Not a JsArrayType
   JsArrayTypeNone,
-  // An int8 array.
   JsArrayTypeInt8,
-  // An uint8 array.
   JsArrayTypeUint8,
-  // An uint8 clamped array.
   JsArrayTypeUint8Clamped,
-  // An int16 array.
   JsArrayTypeInt16,
-  // An uint16 array.
   JsArrayTypeUint16,
-  // An int32 array.
   JsArrayTypeInt32,
-  // An uint32 array.
   JsArrayTypeUint32,
-  // A float32 array.
   JsArrayTypeFloat32,
-  // A float64 array.
   JsArrayTypeFloat64
 } JsTypedArrayType;
 
-
-// JSNI class and methods.
-
-class GCCallbackInfo {
- public:
-  // Get the runtime.
-  JsRuntime GetRuntime(JSNIEnv* jsni_env) const;
-
-  // Get the pointer be set in Set(Weak)GCCallback.
-  void* GetInfo(JSNIEnv* jsni_env) const;
-
-  // Get the env.
-  JSNIEnv* Env() const;
-};
-
-
-class NativeCallbackInfo {
- public:
-  // Arguments number.
-  int Length(JSNIEnv* jsni_env) const;
-
-  // Get the arguments.
-  // TODO(jiny). Be more nice.
-  // JsValue operator[](JSNIEnv* jsni_env, int i) const;
-  JsValue Get(JSNIEnv* jsni_env, int i) const;
-
-  // Get the callee function.
-  JsFunction Callee(JSNIEnv* jsni_env) const;
-
-  // Get this object.
-  JsObject This(JSNIEnv* jsni_env) const;
-
-  JsObject Holder(JSNIEnv* jsni_env) const;
-
-  bool IsConstructCall(JSNIEnv* jsni_env) const;
-
-  JsValue Data(JSNIEnv* jsni_env) const;
-
-  // Get runtime.
-  JsRuntime GetRuntime(JSNIEnv* jsni_env) const;
-
-  // Set return value.
-  void SetReturnValue(JSNIEnv* jsni_env, JsValue ret) const;
-
-  static const int kHolderIndex = 0;
-  static const int kIsolateIndex = 1;
-  static const int kReturnValueDefaultValueIndex = 2;
-  static const int kReturnValueIndex = 3;
-  static const int kDataIndex = 4;
-  static const int kCalleeIndex = 5;
-  static const int kContextSaveIndex = 6;
-};
-
-
-class PropertyInfo {
- public:
-  JsObject This(JSNIEnv* jsni_env) const;
-  JsObject Holder(JSNIEnv* jsni_env) const;
-  JsValue Data(JSNIEnv* jsni_env) const;
-  JsRuntime GetRuntime(JSNIEnv* jsni_env) const;
-
-  // Get the env.
-  JSNIEnv* Env() const;
-
-  void SetReturnValue(JSNIEnv* jsni_env, JsValue ret) const;
-
-  // This shouldn't be public, but the arm compiler needs it.
-  static const int kArgsLength = 5;
-  static const int kHolderIndex = 0;
-  static const int kRuntimeIndex = 1;
-  static const int kThisIndex = 2;
-  static const int kReturnValueIndex = 3;
-  static const int kDataIndex = 4;
-
-  explicit PropertyInfo(void** values) : values_(values) {}
-  void** values_;
-};
-
-
-class JsRuntime {
- public:
-  explicit JsRuntime(RuntimeRef rt);
-
-  // New a runtime.
-  // Not Implemented.
-  static JsRuntime New(JSNIEnv* jsni_env);
-
-  // Dispose the runtime.
-  // Not Implemented.
-  void Dispose(JSNIEnv* jsni_env);
-
-  static JsRuntime GetCurrent(JSNIEnv* jsni_env);
-
- private:
-  RuntimeRef rt_;
-  friend class JsContext;
-  friend class LocalRefScope;
-};
-
-
-class JsContext {
- public:
-  explicit JsContext(ContextRef context);
-
-  static JsContext GetCurrentContext(JSNIEnv* jsni_env, JsRuntime runtime);
-
-  ContextRef Get() const { return context_; }
-
-  // Not need new yet.
-  // static JsContext New(JsRuntime runtime);
-
- private:
-  ContextRef context_;
-};
-
-
-// The superclass of all JavaScript values and objects.
-class JsValue {
- public:
-  static JsValue Undefined(JSNIEnv* jsni_env);
-
-  static JsValue Null(JSNIEnv* jsni_env);
-
-  bool IsEmpty(JSNIEnv* jsni_env) const;
-
-  // Returns true if this value is the undefined value.
-  bool IsUndefined(JSNIEnv* jsni_env) const;
-
-  // Returns true if this value is the null value.
-  bool IsNull(JSNIEnv* jsni_env) const;
-
-  // Returns true if this value is a string.
-  bool IsString(JSNIEnv* jsni_env) const;
-
-  // Returns true if this value is a function.
-  bool IsFunction(JSNIEnv* jsni_env) const;
-
-  // Returns true if this value is an array.
-  bool IsArray(JSNIEnv* jsni_env) const;
-
-  // Returns true if this value is a object.
-  bool IsObject(JSNIEnv* jsni_env) const;
-
-  // Returns true if this value is a number.
-  bool IsNumber(JSNIEnv* jsni_env) const;
-
-  // Returns true if this value is a boolean.
-  bool IsBoolean(JSNIEnv* jsni_env) const;
-
-  // Returns true if this value is a TypedArray.
-  bool IsTypedArray(JSNIEnv* jsni_env) const;
-
-  // These are quick path for primitive convertion.
-  // Convert JsValue to native int.
-  int ToInt(JSNIEnv* jsni_env) const;
-
-  // Convert JsValue to native double.
-  double ToDouble(JSNIEnv* jsni_env) const;
-
-  // Convert JsValue to native bool.
-  bool ToBool(JSNIEnv* jsni_env) const;
-
-  // Cast as Object.
-  JsObject AsObject(JSNIEnv* jsni_env) const;
-
-  // Cast as Function.
-  JsFunction AsFunction(JSNIEnv* jsni_env) const;
-
-  // Cast as String.
-  JsString AsString(JSNIEnv* jsni_env) const;
-
-  explicit JsValue(JSNIEnv* jsni_env, int val);
-
-  explicit JsValue(JSNIEnv* jsni_env, double val);
-
-  explicit JsValue(JSNIEnv* jsni_env, bool val);
-
-  JsValue();
-
-  JsLocal Get() { return val_; }
-
- private:
-  JsLocal val_;
-  explicit JsValue(JsLocal val);
-  friend class JsGlobalRef;
-  friend class JsNumber;
-  friend class JsBoolean;
-  friend class JsObject;
-  friend class JsFunction;
-  friend class JsString;
-  friend class JsTypedArray;
-  friend class LocalRefScope;
-};
-
-
-class JsNumber : public JsValue {
- public:
-  JsNumber() {}
-  explicit JsNumber(JSNIEnv* jsni_env, double value);
-  explicit JsNumber(JSNIEnv* jsni_env, int32_t value);
-  explicit JsNumber(JSNIEnv* jsni_env, uint32_t value);
- private:
-  explicit JsNumber(JsLocal val);
-  friend class JsGlobalRef;
-};
-
-
-class JsBoolean : public JsValue {
- public:
-  JsBoolean() {}
-  explicit JsBoolean(JSNIEnv* jsni_env, bool value);
- private:
-  explicit JsBoolean(JsLocal val);
-  friend class JsGlobalRef;
-};
-
-
-class JsObject : public JsValue {
- public:
-  JsObject();
-
-  // Create an object.
-  // Use New to Create an Object.
-  static JsObject New(JSNIEnv* jsni_env);
-
-  // Create an object with an internal field.
-  // Use New... to avoid the ambiguity of val_ assignment.
-  static JsObject NewWithInternalField(JSNIEnv* jsni_env);
-
-  // Returns true if this object has an internal field.
-  bool HasInternalField(JSNIEnv* jsni_env);
-
-  // Set a pointer field for this object.
-  void SetInternalField(JSNIEnv* jsni_env, void* field);
-
-  // Get the pointer field in this object.
-  void* GetInternalField(JSNIEnv* jsni_env);
-
-  // Return true if this object has the property name.
-  bool HasProperty(JSNIEnv* jsni_env, const char* name);
-
-  // Get the property.
-  JsValue GetProperty(JSNIEnv* jsni_env, const char* name);
-
-  // Set the property.
-  bool SetProperty(JSNIEnv* jsni_env, const char* name, JsValue property);
-
-  // Delete the property.
-  bool DeleteProperty(JSNIEnv* jsni_env, const char* name);
-
-  // Set the getter and setter function call back for
-  // the object.
-  bool SetAccessor(JSNIEnv* jsni_env, const char* name,
-                   GetterCallback getter,
-                   SetterCallback setter = 0);
-
-  // Get the object's prototype.
-  JsValue GetPrototype(JSNIEnv* jsni_env);
-
-  // Set the object's prototype.
-  bool SetPrototype(JSNIEnv* jsni_env, JsValue prototype);
-
- private:
-  explicit JsObject(JsLocal val);
-  friend class JsValue;
-  friend class JsGlobalRef;
-  friend class JsFunction;
-  friend class JsTypedArray;
-};
-
-
-// TODO(jiny). JsObject has a constructor. So use JsValue?
-class JsFunction : public JsObject {
- public:
-  JsFunction() {}
-  explicit JsFunction(JSNIEnv* jsni_env, NativeFunctionCallback nativeFunc);
-
-  // Call the function.
-  // argc is the argument number, and
-  // argv is the argument array or the pointer to the
-  // first argument.
-  JsValue Call(JSNIEnv* jsni_env, JsValue recv, int argc,
-               JsValue* argv);
- private:
-  explicit JsFunction(JsLocal val);
-  friend class JsValue;
-  friend class JsGlobalRef;
-};
-
-
-class JsString : public JsValue {
- public:
-  JsString() {}
-  explicit JsString(JSNIEnv* jsni_env, const char* src);
-
-  // Get utf8 value. The chars are made copied.
-  // Must call ReleaseUtf8Chars to free space.
-  char* GetUtf8Chars(JSNIEnv* jsni_env);
-
-  // Release the utf8 string.
-  static void ReleaseUtf8Chars(JSNIEnv* jsni_env, char * str);
-
-  // Get 16-bits string. The chars are made copied.
-  // Must call ReleaseChars to free space.
-  uint16_t* GetChars(JSNIEnv* jsni_env);
-
-  // Release 16-bits string.
-  static void ReleaseChars(JSNIEnv* jsni_env, uint16_t* str);
-
-  // Get 16-bits string length.
-  size_t Length(JSNIEnv* jsni_env);
-
-  // Get utf8 length.
-  size_t Utf8Length(JSNIEnv* jsni_env);
-
- private:
-  explicit JsString(JsLocal val);
-  friend class JsGlobalRef;
-  friend class JsValue;
-};
-
-
-// Only implement the uint8array.
-// TODO(jiny): implement others.
-class JsTypedArray : public JsObject {
- public:
-  JsTypedArray() {}
-
-  // Only uint8 array implemented now.
-  JsTypedArray(JSNIEnv* jsni_env, JsTypedArrayType type, char * data, size_t length);
-
-  // Return the specific type of TypedArray.
-  JsTypedArrayType Type(JSNIEnv* jsni_env);
-
-  // Get number of elements.
-  size_t Length(JSNIEnv* jsni_env);
-
-  // Get the pointer of the TypedArray.
-  void *Data(JSNIEnv* jsni_env);
- private:
-  explicit JsTypedArray(JsLocal val);
-  friend class JsValue;
-  friend class JsGlobalRef;
-};
-
-
-class JsGlobalRef {
- public:
-  JsGlobalRef();
-
-  // Set a value to global reference.
-  void Set(JSNIEnv* jsni_env, const JsValue val);
-
-  // Clear the global reference pointed to the value.
-  void Clear(JSNIEnv* jsni_env);
-
-  // Return true if the global reference is empty.
-  // TODO.(IsEmpty and empty) Could be removed from ENV. Use val_ instead.
-  bool IsEmpty(JSNIEnv* jsni_env) const;
-
-  // Set the global reference to empty.
-  void Empty(JSNIEnv* jsni_env);
-
-  // Convert the global reference to a local value.
-  JsValue ToLocal(JSNIEnv* jsni_env);
-
-  // Not Implemented for now. Use SetWeakGCCallback.
-  void SetGCCallback(JSNIEnv* jsni_env, void* args, GCCallback callback);
-
-  // Set a callback when the global object is garbage collected.
-  // Note: the time of gc is not guaranteed.
-  void SetWeakGCCallback(JSNIEnv* jsni_env, void* args, GCCallback callback);
-
- private:
-  JsGlobal val_;
-};
-
-
-// TODO(Jiny): Add escape method. So we need another pointer:
-// escaope_slot to store it.
-// Note: It will create a handle internal.
-class LocalRefScope {
- public:
-  // TODO. Remove runtime and isolate-internal in the API.
-  // Because we can get them from the env.
-  LocalRefScope(JSNIEnv* jsni_env, JsRuntime runtime);
-  ~LocalRefScope();
-  JsValue SaveRef(JSNIEnv* jsni_env, JsValue val);
-
-  // Return 0 if success.
-  // Not implemented.
-  static int PushLocalScope(JSNIEnv* jsni_env, JsRuntime runtime);
-  // Return a escope JsValue for the given val.
-  // Not implemented.
-  static JsValue PopLocalScope(JSNIEnv* jsni_env, JsValue val);
- private:
-  // scope_ contains the information of local ref.
-  JsScope scope_;
-  JSNIEnv* jsni_env_;
-};
-
-
-// Exception.
-class JsException {
- public:
-  // Throw an exception for an error.
-  static void ThrowError(JSNIEnv* jsni_env, const char* errmsg);
-
-  // Throw an exception for a type error.
-  static void ThrowTypeError(JSNIEnv* jsni_env, const char* errmsg);
-
-  // Throw an exception for a range error.
-  static void ThrowRangeError(JSNIEnv* jsni_env, const char* errmsg);
-};
-
-
-// Table of interface method pointers.
+// Table of interface function pointers.
 struct JSNINativeInterface {
-  // TODO(jiny). Should have reserved.
-  uint32_t (*GetVersion)();
-  bool (*RegisterMethod)(JSNIEnv*, const JsValue,
-                         const char*,
-                         NativeFunctionCallback);
+  void* reserved1;
+  void* reserved2;
+  void* reserved3;
+  void* reserved4;
+  void* reserved5;
 
-  // JsValue
-  JsValue (*Undefined)();
-  JsValue (*Null)();
-  bool (JsValue::*IsEmpty)() const;
-  bool (JsValue::*IsUndefined)() const;
-  bool (JsValue::*IsNull)() const;
-  bool (JsValue::*IsString)() const;
-  bool (JsValue::*IsFunction)() const;
-  bool (JsValue::*IsArray)() const;
-  bool (JsValue::*IsObject)() const;
-  bool (JsValue::*IsNumber)() const;
-  bool (JsValue::*IsBoolean)() const;
-  bool (JsValue::*IsTypedArray)() const;
-  int (JsValue::*ToInt)() const;
-  double (JsValue::*ToDouble)() const;
-  bool (JsValue::*ToBool)() const;
-  JsObject (JsValue::*AsObject)() const;
-  JsFunction (JsValue::*AsFunction)() const;
-  JsString (JsValue::*AsString)() const;
-  JsValue (*JsValueNewInt)(int);
-  JsValue (*JsValueNewDou)(double);
-  JsValue (*JsValueNewBoo)(bool);
+  // \summary:
+  //    Returns the version of the JSNI.
+  // \param:
+  //    None.
+  // \returns:
+  //    Returns the version of the JSNI.
+  int (*GetVersion)();
 
-  // JsNumber
-  JsNumber (*JsNumberNewDou)(double);
-  JsNumber (*JsNumberNewInt)(int32_t);
-  JsNumber (*JsNumberNewUint)(uint32_t);
+  // \summary:
+  //    Registers the native method.
+  // \param:
+  //    recv: the method receiver. The developer may not concern about it.
+  //    name: a function name.
+  //    callback: a native function to be registered.
+  // \returns:
+  //    Returns true on success.
+  bool (*RegisterMethod)(const JsValue recv, const char* name,
+                         NativeFunctionCallback callback);
+  // \summary:
+  //    Returns the number of arguments from native callback info.
+  // \param:
+  //    info: the callback info.
+  // \returns:
+  //    Returns the number of arguments.
+  int (*GetArgsLength)(CallbackInfo info);
 
-  // JsBoolean
-  JsBoolean (*JsBooleanNew)(bool value);
+  // \summary:
+  //    Returns the argument from native callback info.
+  // \param:
+  //    info: the callback info.
+  //    id: the index of arguments.
+  // \returns:
+  //    Returns the argument.
+  JsValue (*GetArg)(CallbackInfo info, int id);
 
-  // JsObject
-  JsObject (*JsObjectNew)();
-  JsObject (*JsObjectNewWithInternalField)();
-  bool (JsObject::*HasInternalField)();
-  void (JsObject::*SetInternalField)(void*);
-  void* (JsObject::*GetInternalField)();
-  bool (JsObject::*HasProperty)(const char*);
-  JsValue (JsObject::*GetProperty)(const char*);
-  bool (JsObject::*SetProperty)(const char*, JsValue);
-  bool (JsObject::*DeleteProperty)(const char*);
-  bool (JsObject::*SetAccessor)(const char*,
-                   GetterCallback,
-                   SetterCallback);
-  JsValue (JsObject::*GetPrototype)();
-  bool (JsObject::*SetPrototype)(JsValue);
+  // \summary:
+  //    Returns "this" JavaScript object of this native function.
+  // \param:
+  //    info: the callback info.
+  // \returns:
+  //    Returns "this" JavaScript object of this native function.
+  JsValue (*GetThis)(CallbackInfo info);
 
-  // JsFunction
-  JsFunction (*JsFunctionNew)(NativeFunctionCallback);
-  JsValue (JsFunction::*Call)(JsValue, int, JsValue*);
+  // \summary:
+  //    Sets the JavaScript return value of this native function.
+  // \param:
+  //    info: the callback info.
+  //    val: the JavaScript value to return to JavaScript.
+  // \returns:
+  //    None.
+  void (*SetReturnValue)(CallbackInfo info, JsValue val);
 
-  // JsString
-  JsString (*JsStringNew)(const char*); // static
-  char* (JsString::*GetUtf8Chars)();
-  void (*ReleaseUtf8Chars)(char*); // static
-  uint16_t* (JsString::*GetChars)();
-  void (*ReleaseChars)(uint16_t*); // static
-  size_t (JsString::*JsStringLength)();
-  size_t (JsString::*JsStringUtf8Length)();
+  // Primitive Operations
 
-  // JsTypedArray
-  JsTypedArray (*JsTypedArrayNew)(JsTypedArrayType, char*, size_t);
-  JsTypedArrayType (JsTypedArray::*Type)();
-  size_t (JsTypedArray::*JsTypedArrayLength)();
-  void* (JsTypedArray::*JsTypedArrayData)();
+  // \summary:
+  //    Tests whether the JavaScript value is undefined.
+  // \param:
+  //    val: a JavaScript value.
+  // \returns:
+  //    Returns true if the value is undefined.
+  bool (*IsUndefined)(JsValue val);
 
-  // JsGlobalRef
-  void (JsGlobalRef::*JsGlobalRefSet)(const JsValue);
-  void (JsGlobalRef::*JsGlobalRefClear)();
-  bool (JsGlobalRef::*JsGlobalRefIsEmpty)() const;
-  void (JsGlobalRef::*JsGlobalRefEmpty)();
-  JsValue (JsGlobalRef::*JsGlobalRefToLocal)();
-  void (JsGlobalRef::*SetGCCallback)(void*, GCCallback);
-  void (JsGlobalRef::*SetWeakGCCallback)(void*, GCCallback);
+  // \summary:
+  //    Constructs a new Undefined JavaScript value.
+  // \param:
+  //    None.
+  // \returns:
+  //    Returns an Undefined JavaScript value.
+  JsValue (*NewUndefined)();
 
-  // LocalRefScope
-  void (LocalRefScope::*LocalRefScopeNew)(JsRuntime runtime);
-  void (LocalRefScope::*LocalRefScopeDeconstruct)();
-  JsValue (LocalRefScope::*SaveRef)(JsValue);
+  // \summary:
+  //    Tests whether the JavaScript value is Null.
+  // \param:
+  //    val: a JavaScript value.
+  // \returns:
+  //    Returns true if the value is Null.
+  bool (*IsNull)(JsValue val);
 
-  // JsException
-  void (*ThrowError)(const char*);
-  void (*ThrowTypeError)(const char*);
-  void (*ThrowRangeError)(const char*);
+  // \summary:
+  //    Constructs a new Null JavaScript value.
+  // \param:
+  //    None.
+  // \returns:
+  //    Returns a Null JavaScript value.
+  JsValue (*NewNull)();
 
-  // NativeCallbackInfo
-  int (NativeCallbackInfo::*NativeCallbackInfoLength)() const;
-  JsValue (NativeCallbackInfo::*NativeCallbackInfoGet)(int) const;
-  JsFunction (NativeCallbackInfo::*NativeCallbackInfoCallee)() const;
-  JsObject (NativeCallbackInfo::*NativeCallbackInfoThis)() const;
-  JsObject (NativeCallbackInfo::*NativeCallbackInfoHolder)() const;
-  bool (NativeCallbackInfo::*NativeCallbackInfoIsConstructCall)() const;
-  JsValue (NativeCallbackInfo::*NativeCallbackInfoData)() const;
-  JsRuntime (NativeCallbackInfo::*NativeCallbackInfoGetRuntime)() const;
-  void (NativeCallbackInfo::*NativeCallbackInfoSetReturnValue)(JsValue) const;
 
-  // GCCallbackInfo
-  JsRuntime (GCCallbackInfo::*GCCallbackInfoGetRuntime)() const;
-  void* (GCCallbackInfo::*GCCallbackInfoGetInfo)() const;
-  JSNIEnv* (GCCallbackInfo::*GCCallbackInfoEnv)() const;
+  // \summary:
+  //    Tests whether the JavaScript value is Boolean.
+  // \param:
+  //    val: a JavaScript value.
+  // \returns:
+  //    Returns true if the value is Boolean.
+  bool (*IsBoolean)(JsValue val);
 
-  // PropertyInfo
-  JsObject (PropertyInfo::*PropertyInfoThis)() const;
-  JsObject (PropertyInfo::*PropertyInfoHolder)() const;
-  JsValue (PropertyInfo::*PropertyInfoData)() const;
-  JsRuntime (PropertyInfo::*PropertyInfoGetRuntime)() const;
-  JSNIEnv* (PropertyInfo::*PropertyInfoEnv)() const;
-  void (PropertyInfo::*PropertyInfoSetReturnValue)(JsValue) const;
+  // \summary:
+  //    Converts the JavaScript value to bool.
+  // \param:
+  //    val: a JavaScript value.
+  // \returns:
+  //    Returns the bool value.
+  bool (*ToBool)(JsValue val);
 
-  // JsRuntime
-  JsRuntime (*JsRuntimeGetCurrent)();
+  // \summary:
+  //    Constructs a new Boolean JavaScript value.
+  // \param:
+  //    val: a bool value.
+  // \returns:
+  //    Returns a Boolean JavaScript value.
+  JsValue (*NewBoolean)(bool val);
 
-  // JsContext
-  JsContext (*GetCurrentContext)(JsRuntime);
-  // ..Many many function pointer.
+  // \summary:
+  //    Tests whether the JavaScript value is Number.
+  // \param:
+  //    val: a JavaScript value.
+  // \returns:
+  //    Returns true if the value is Number.
+  bool (*IsNumber)(JsValue val);
+
+  // \summary:
+  //    Constructs a new Number JavaScript value.
+  // \param:
+  //    val: a double value.
+  // \returns:
+  //    Returns a Number JavaScript value.
+  JsValue (*NewNumber)(double val);
+
+  // \summary:
+  //    Converts the JavaScript value to double.
+  // \param:
+  //    val: a JavaScript value.
+  // \returns:
+  //    Returns the double value.
+  double (*ToDouble)(JsValue val);
+
+
+  // \summary:
+  //    Tests whether the JavaScript value is String.
+  // \param:
+  //    val: a JavaScript value.
+  // \returns:
+  //    Returns true if the value is String.
+  bool (*IsString)(JsValue val);
+
+  // \summary:
+  //    Constructs a new String value from an array of characters
+  //    in UTF-8 encoding.
+  // \param:
+  //    src: the pointer to a UTF-8 string.
+  // \returns:
+  //    Returns a String value, or NULL if the string can not be constructed.
+  JsValue (*NewStringFromUtf8)(const char* src, int len);
+
+  // \summary:
+  //    Returns the length in bytes of the UTF-8 representation of a string.
+  // \param:
+  //    string: a JavaScript string value.
+  // \returns:
+  //    Returns the UTF-8 length of the string.
+  size_t (*GetStringUtf8Length)(JsValue string);
+
+  // \summary:
+  //    Returns a pointer to an array of bytes representing the string in UTF-8
+  //    encoding. This array must be released by ReleaseStringUtf8Chars() to
+  //    avoid memory leak.
+  // \param:
+  //    string: a JavaScript string value.
+  // \returns:
+  //    Returns a pointer to a UTF-8 string, or NULL if the operation fails.
+  char* (*GetStringUtf8Chars)(JsValue string);
+
+  // \summary:
+  //    Informs the VM that the native code no longer needs access to str. The
+  //    str argument is a pointer derived from string using GetStringUtf8Chars().
+  // \param:
+  //    string: a JavaScript string value.
+  //    str: a pointer to a UTF-8 string.
+  // \returns:
+  //    NONE.
+  void (*ReleaseStringUtf8Chars)(JsValue string, char* str);
+
+  //Object Operations
+
+  // \summary:
+  //    Tests whether a JavaScript value is a JavaScript object.
+  // \param:
+  //    val: a JavaScript value.
+  // \returns:
+  //    Returns true if val is a JavaScript object.
+  bool (*IsObject)(JsValue val);
+
+  // \summary:
+  //    Tests whether a JavaScript value is empty.
+  // \param:
+  //    val: a JavaScript value.
+  // \returns:
+  //    Returns true if val is empty.
+  bool (*IsEmpty)(JsValue val);
+
+  // \summary:
+  //    Constructs a JavaScript object.
+  // \param:
+  //    None.
+  // \returns:
+  //    Returns a JavaScript object.
+  JsValue (*NewObject)();
+
+  // \summary:
+  //    Constructs a JavaScript object with hidden internal field.
+  // \param:
+  //    count: a number of hidden fields.
+  // \returns:
+  //    Returns a JavaScript object.
+  JsValue (*NewObjectWithHiddenField)(int count);
+
+  // \summary:
+  //    Tests whether a JavaScript object has a property named name.
+  // \param:
+  //    object: a JavaScript object.
+  //    name: a property name.
+  // \returns:
+  //    Returns true if object has property named name.
+  bool (*HasProperty)(JsValue object, const char* name);
+
+  // \summary:
+  //    Returns the property of the JavaScript object.
+  // \param:
+  //    object: a JavaScript object.
+  //    name: a property name.
+  // \returns:
+  //    Returns the property of the JavaScript object.
+  JsValue (*GetProperty)(JsValue object, const char* name);
+
+  // \summary:
+  //    Sets a property of a JavaScript object.
+  // \param:
+  //    object: a JavaScript object.
+  //    name: a property name.
+  //    property: a JavaScript value.
+  // \returns:
+  //    Returns true if the operation succeeds.
+  bool (*SetProperty)(JsValue object, const char* name, JsValue property);
+
+  // \summary:
+  //    Deletes the property of a JavaScript object.
+  // \param:
+  //    object: a JavaScript object.
+  //    name: a property name.
+  // \returns:
+  //    Returns true if the operation succeeds.
+  bool (*DeleteProperty)(JsValue object, const char* name);
+
+  // \summary:
+  //    Returns a prototype of a JavaScript object.
+  // \param:
+  //    object: a JavaScript object.
+  // \returns:
+  //    Returns a JavaScript value.
+  JsValue (*GetPrototype)(JsValue object);
+
+  // \summary:
+  //    Gets the number of the hidden internal field fo a JavaScript object.
+  // \param:
+  //    object: a JavaScript object.
+  // \returns:
+  //    Returns the number of the hidden internal field.
+  int (*HiddenFieldCount)(JsValue object);
+
+  // \summary:
+  //    Sets a hidden internal field of a JavaScript object.
+  // \param:
+  //    object: a JavaScript object.
+  //    index: index of a hidden internal field.
+  //    field: a hidden internal field.
+  // \returns:
+  //    None.
+  void (*SetHiddenField)(JsValue object, int index, void* field);
+
+  // \summary:
+  //    Gets a hidden internal field of a JavaScript object.
+  // \param:
+  //    object: a JavaScript object.
+  //    index: index of a hidden internal field.
+  // \returns:
+  //    a hidden internal field.
+  void* (*GetHiddenField)(JsValue object, int index);
+
+  // \summary:
+  //    Tests whether a JavaScript value is Function.
+  // \param:
+  //    val: a JavaScript value.
+  // \returns:
+  //    Returns true if val is Function.
+  bool (*IsFunction)(JsValue val);
+
+  // \summary:
+  //    Constructs a JavaScript function with nativeFunc.
+  // \param:
+  //    nativeFunc: a native function.
+  // \returns:
+  //    Returns a JavaScript function.
+  JsValue (*NewFunction)(NativeFunctionCallback nativeFunc);
+
+  // \summary:
+  //    Calls a JavaScript function.
+  // \param:
+  //    func: a JavaScript funciton.
+  //    recv: the receiver the func belongs to.
+  //    argc: the arguments number.
+  //    argv: a pointer to an array of JavaScript value.
+  // \returns:
+  //    Returns the JavaScript value returned from calling func.
+  JsValue (*CallFunction)(JsValue func, JsValue recv, int argc,
+               JsValue* argv);
+
+
+  // \summary:
+  //    Tests whether a JavaScript value is Array.
+  // \param:
+  //    val: a JavaScript value.
+  // \returns:
+  //    Returns true if val is Array.
+  bool (*IsArray)(JsValue val);
+
+  // \summary:
+  //    Returns the number of elements in the array.
+  // \param:
+  //    array: a JavaScript array.
+  // \returns:
+  //    Returns the length of the array.
+  size_t (*GetArrayLength)(JsValue array);
+
+  // \summary:
+  //    Constructs a JavaScript array with initial length: initial_length.
+  // \param:
+  //    initial_length: initial array size.
+  // \returns:
+  //    Returns a JavaScript array object, or NULL if the operation fails.
+  JsValue (*NewArray)(size_t initial_length);
+
+  // \summary:
+  //    Returns an element of a JavaScript array.
+  // \param:
+  //    array: a JavaScript array.
+  //    index: array index.
+  // \returns:
+  //    Returns a JavaScript value.
+  JsValue (*GetArrayElement)(JsValue array, size_t index);
+
+  // \summary:
+  //    Sets an element of a JavaScript array.
+  // \param:
+  //    array: a JavaScript array.
+  //    index: a array index.
+  //    value: a new value.
+  // \returns:
+  //    None.
+  void (*SetArrayElement)(JsValue array, size_t index, JsValue value);
+
+  // \summary:
+  //    Tests whether a JavaScript value is TypedArray.
+  // \param:
+  //    val: a JavaScript value.
+  // \returns:
+  //    Returns true if val is TypedArray.
+  bool (*IsTypedArray)(JsValue val);
+
+  // \summary:
+  //    Constructs a JavaScript TypedArray object.
+  // \param:
+  //    type: the type of the array.
+  //    data: the pointer to the data buffer of the array.
+  //    length: the length of the array.
+  // \returns:
+  //    Returns a JavaScript TypedArray object.
+  JsValue (*NewTypedArray)(JsTypedArrayType type, void* data, size_t length);
+
+  // \summary:
+  //    Returns the type of the JavaScript TypedArray value.
+  // \param:
+  //    typed_array: a JavaScript TypedArray value.
+  // \returns:
+  //    Returns the type of the JavaScript TypedArray value.
+  JsTypedArrayType (*GetTypedArrayType)(JsValue typed_array);
+
+  // \summary:
+  //    Returns the pointer to the buffer of TypedArray data.
+  // \param:
+  //    typed_array: a JavaScript TypedArray value.
+  // \returns:
+  //    Returns the pointer to the buffer of TypedArray data.
+  void* (*GetTypedArrayData)(JsValue typed_array);
+
+  //Reference
+
+  // \summary:
+  //    Creates a local reference scope, and then all local references will
+  //    be allocated within this reference scope until the reference scope
+  //    is deleted using PoplocalScope() or another local reference scope
+  //    is created.
+  // \param:
+  //    None.
+  // \returns:
+  //    None.
+  void (*PushLocalScope)();
+
+  // \summary:
+  //    Pops off the current local reference scope, frees all the local
+  //    references in the local reference scope, and returns a local reference
+  //    in the previous local scope for the given val JavaScript value.
+  // \param:
+  //    val: a JavaScript value.
+  // \returns:
+  //    Returns a JavaScript value.
+  JsValue (*PopLocalScope)(JsValue val);
+
+  // \summary:
+  //    Creates a new global reference to the JavaScript value referred to by
+  //    the val argument. The global value must be explicitly disposed of by
+  //    calling DeleteGlobalValue(), except that the global value is set to
+  //    weak by calling SetWeakGCCallback(). The global value will be alive
+  //    untile calling DeleteGlobalValue() to dispose it.
+  // \param:
+  //    val: a JavaScript value.
+  // \returns:
+  //    Returns a global value.
+  JsGlobalValue (*NewGlobalValue)(JsValue val);
+
+  // \summary:
+  //    Deletes the global reference pointed by val.
+  // \param:
+  //    val: a JsGlobalValue value.
+  // \returns:
+  //    None.
+  void (*DeleteGlobalValue)(JsGlobalValue val);
+
+  // \summary:
+  //    Returns a local JsValue value from a JsGlobalValue value.
+  // \param:
+  //    val: a JsGlobalValue value.
+  // \returns:
+  //    Returns a local JsValue value.
+  JsValue (*GetGlobalValue)(JsGlobalValue val);
+
+  // \summary:
+  //    Sets a callback which will be called when the JavaScript value pointed by val
+  //    is freed. The developer can pass an argument to callback by args.
+  // \param:
+  //    val: a JavaScript value.
+  //    args: a pointer to an argument passed to callback.
+  //    callback: a function callback.
+  // \returns:
+  //    None.
+  void (*SetGCCallback)(JsValue val, void* args, JSNIGCCallback callback);
+
+  // \summary:
+  //    Makes the JsGlobaValue val weak, and sets a callback which will be
+  //    called when the JavaScript value pointed by val is freed. A weak global
+  //    reference allows the underlying JavaScript value to be garbage
+  //    collected. The developer can pass an argument to callback by args.
+  // \param:
+  //    val: a JsGlobalValue value.
+  //    args: a pointer to an argument passed to callback.
+  //    callback: a function callback.
+  // \returns:
+  //    None.
+  void (*SetWeakGCCallback)(JsGlobalValue val, void* args, JSNIGCCallback callback);
+
+  //Exception
+
+  // \summary:
+  //    Constructs an error object with the message specified by errmsg
+  //    and causes that error to be thrown. It throws a JavaScript Exception.
+  // \param:
+  //    errmsg: an error message.
+  // \returns:
+  //    None.
+  void (*ThrowErrorException)(const char* errmsg);
+
+  // \summary:
+  //    Constructs an type error object with the message specified by errmsg
+  //    and causes that type error to be thrown. It throws a JavaScript Exception.
+  // \param:
+  //    errmsg: an error message.
+  // \returns:
+  //    None.
+  void (*ThrowTypeErrorException)(const char* errmsg);
+
+  // \summary:
+  //    Constructs an range error object with the message specified by errmsg
+  //    and causes that type error to be thrown. It throws a JavaScript Exception.
+  // \param:
+  //    errmsg: an error message.
+  // \returns:
+  //    None.
+  void (*ThrowRangeErrorException)(const char* errmsg);
+
+  // \summary:
+  //    Tests whether there is error occured during pervious JSNI call. After
+  //    calling ErrorCheck(), if there is error occured, the error will be
+  //    cleared.
+  // \param:
+  //    None.
+  // \returns:
+  //    Returns true if there is error occured during previous JSNI call.
+  bool (*ErrorCheck)();
+
 };
 
 
-
-/*===========================
- * Implementation.
-=============================*/
-
-// --- Static functions. ---
-class JSNI {
- public:
-  // Get the version of JSNI.
-  static uint32_t GetVersion(JSNIEnv* jsni_env) {
-    return jsni_env->GetVersion();
-  }
-
-  // Register native method.
-  // TODO(jiny): To recv, maybe we should use (JsLocal)void* instead of JsValue.
-  static bool RegisterMethod(JSNIEnv* jsni_env, const JsValue recv,
-                             const char* name,
-                             NativeFunctionCallback callback) {
-    return jsni_env->RegisterMethod(jsni_env, recv, name, callback);
-  }
+/*
+ * Extended jsni_env which contains functions table pointer.
+ */
+struct _JSNIEnv {
+  const struct JSNINativeInterface* functions;
 };
 
-
-// JsValue.
-JsValue::JsValue(JSNIEnv* jsni_env, int val) {
-    *this = jsni_env->JsValueNewInt(val);
-}
-
-JsValue::JsValue(JSNIEnv* jsni_env, double val) {
-    *this = jsni_env->JsValueNewDou(val);
-}
-
-JsValue::JsValue(JSNIEnv* jsni_env, bool val) {
-    *this = jsni_env->JsValueNewBoo(val);
-}
-
-JsValue::JsValue() : val_(0) {
-}
-
-JsValue JsValue::Undefined(JSNIEnv* jsni_env) {
-  return jsni_env->Undefined();
-}
-// Returns true if this value is the null value.
-JsValue JsValue::Null(JSNIEnv* jsni_env) {
-  return jsni_env->Null();
-}
-
-bool JsValue::IsEmpty(JSNIEnv* jsni_env) const {
-  return (this->*jsni_env->IsEmpty)();
-}
-
-// Returns true if this value is the undefined value.
-bool JsValue::IsUndefined(JSNIEnv* jsni_env) const {
-  return (this->*jsni_env->IsUndefined)();
-}
-
-// Returns true if this value is the null value.
-bool JsValue::IsNull(JSNIEnv* jsni_env) const {
-  return (this->*jsni_env->IsNull)();
-}
-
-// Returns true if this value is a string.
-bool JsValue::IsString(JSNIEnv* jsni_env) const {
-  return (this->*jsni_env->IsString)();
-}
-
-// Returns true if this value is a function.
-bool JsValue::IsFunction(JSNIEnv* jsni_env) const {
-  return (this->*jsni_env->IsFunction)();
-}
-
-// Returns true if this value is an array.
-bool JsValue::IsArray(JSNIEnv* jsni_env) const {
-  return (this->*jsni_env->IsArray)();
-}
-
-// Returns true if this value is a object.
-bool JsValue::IsObject(JSNIEnv* jsni_env) const {
-  return (this->*jsni_env->IsObject)();
-}
-
-// Returns true if this value is a number.
-bool JsValue::IsNumber(JSNIEnv* jsni_env) const {
-  return (this->*jsni_env->IsNumber)();
-}
-
-// Returns true if this value is a boolean.
-bool JsValue::IsBoolean(JSNIEnv* jsni_env) const {
-  return (this->*jsni_env->IsBoolean)();
-}
-
-// Returns true if this value is a TypedArray.
-bool JsValue::IsTypedArray(JSNIEnv* jsni_env) const {
-  return (this->*jsni_env->IsTypedArray)();
-}
-
-// These are quick path for primitive convertion.
-// Convert JsValue to native int.
-int JsValue::ToInt(JSNIEnv* jsni_env) const {
-  return (this->*jsni_env->ToInt)();
-}
-
-// Convert JsValue to native double.
-double JsValue::ToDouble(JSNIEnv* jsni_env) const {
-  return (this->*jsni_env->ToDouble)();
-}
-
-// Convert JsValue to native bool.
-bool JsValue::ToBool(JSNIEnv* jsni_env) const {
-  return (this->*jsni_env->ToBool)();
-}
-
-// Cast as Object.
-JsObject JsValue::AsObject(JSNIEnv* jsni_env) const {
-  return (this->*jsni_env->AsObject)();
-}
-
-// Cast as Function.
-JsFunction JsValue::AsFunction(JSNIEnv* jsni_env) const {
-  return (this->*jsni_env->AsFunction)();
-}
-
-// Cast as String.
-JsString JsValue::AsString(JSNIEnv* jsni_env) const {
-  return (this->*jsni_env->AsString)();
-}
-
-
-// JsNumber
-JsNumber::JsNumber(JSNIEnv* jsni_env, double val) {
-  *this = jsni_env->JsNumberNewDou(val);
-}
-
-JsNumber::JsNumber(JSNIEnv* jsni_env, int32_t val) {
-  *this = jsni_env->JsNumberNewInt(val);
-}
-
-JsNumber::JsNumber(JSNIEnv* jsni_env, uint32_t val) {
-  *this = jsni_env->JsNumberNewUint(val);
-}
-
-
-// JsBoolean
-JsBoolean::JsBoolean(JSNIEnv* jsni_env, bool val) {
-  *this = jsni_env->JsBooleanNew(val);
-}
-
-
-// JsObject
-JsObject::JsObject() {}
-
-JsObject JsObject::New(JSNIEnv* jsni_env) {
-  return jsni_env->JsObjectNew();
-}
-
-// Use New... to avoid the ambiguity of val_ assignment.
-JsObject JsObject::NewWithInternalField(JSNIEnv* jsni_env) {
-  return jsni_env->JsObjectNewWithInternalField();
-}
-
-bool JsObject::HasInternalField(JSNIEnv* jsni_env) {
-  return (this->*jsni_env->HasInternalField)();
-}
-
-void JsObject::SetInternalField(JSNIEnv* jsni_env, void* field) {
-  return (this->*jsni_env->SetInternalField)(field);
-}
-
-void* JsObject::GetInternalField(JSNIEnv* jsni_env) {
-  return (this->*jsni_env->GetInternalField)();
-}
-
-bool JsObject::HasProperty(JSNIEnv* jsni_env, const char* name) {
-  return (this->*jsni_env->HasProperty)(name);
-}
-
-JsValue JsObject::GetProperty(JSNIEnv* jsni_env, const char* name) {
-  return (this->*jsni_env->GetProperty)(name);
-}
-
-bool JsObject::SetProperty(JSNIEnv* jsni_env, const char* name, JsValue property) {
-  return (this->*jsni_env->SetProperty)(name, property);
-}
-
-bool JsObject::DeleteProperty(JSNIEnv* jsni_env, const char* name) {
-  return (this->*jsni_env->DeleteProperty)(name);
-}
-
-bool JsObject::SetAccessor(JSNIEnv* jsni_env, const char* name,
-                 GetterCallback getter,
-                 SetterCallback setter) {
-  return (this->*jsni_env->SetAccessor)(name, getter, setter);
-}
-
-JsValue JsObject::GetPrototype(JSNIEnv* jsni_env) {
-  return (this->*jsni_env->GetPrototype)();
-}
-
-bool JsObject::SetPrototype(JSNIEnv* jsni_env, JsValue prototype) {
-  return (this->*jsni_env->SetPrototype)(prototype);
-}
-
-
-// JsFunction
-JsFunction::JsFunction(JSNIEnv* jsni_env, NativeFunctionCallback nativeFunc) {
-  *this = jsni_env->JsFunctionNew(nativeFunc);
-}
-
-JsValue JsFunction::Call(JSNIEnv* jsni_env, JsValue recv, int argc,
-             JsValue* argv) {
-  return (this->*jsni_env->Call)(recv, argc, argv);
-}
-
-
-// JsString
-JsString::JsString(JSNIEnv* jsni_env, const char* src) {
-  *this = jsni_env->JsStringNew(src);
-}
-
-char* JsString::GetUtf8Chars(JSNIEnv* jsni_env) {
-  return (this->*jsni_env->GetUtf8Chars)();
-}
-
-void JsString::ReleaseUtf8Chars(JSNIEnv* jsni_env, char* str) {
-  return jsni_env->ReleaseUtf8Chars(str);
-}
-
-uint16_t* JsString::GetChars(JSNIEnv* jsni_env) {
-  return (this->*jsni_env->GetChars)();
-}
-
-void JsString::ReleaseChars(JSNIEnv* jsni_env, uint16_t* str) {
-  return jsni_env->ReleaseChars(str);
-}
-
-size_t JsString::Length(JSNIEnv* jsni_env) {
-  return (this->*jsni_env->JsStringLength)();
-}
-
-size_t JsString::Utf8Length(JSNIEnv* jsni_env) {
-  return (this->*jsni_env->JsStringUtf8Length)();
-}
-
-
-// JsTypedArray
-JsTypedArray::JsTypedArray(JSNIEnv* jsni_env, JsTypedArrayType type,
-                           char* data,
-                           size_t length) {
-  *this = jsni_env->JsTypedArrayNew(type, data, length);
-}
-
-JsTypedArrayType JsTypedArray::Type(JSNIEnv* jsni_env) {
-  return (this->*jsni_env->Type)();
-}
-
-// In typed array, length is number of elements.
-size_t JsTypedArray::Length(JSNIEnv* jsni_env) {
-  return (this->*jsni_env->JsTypedArrayLength)();
-}
-
-void* JsTypedArray::Data(JSNIEnv* jsni_env) {
-  return (this->*jsni_env->JsTypedArrayData)();
-}
-
-
-// JsGlobalRef
-JsGlobalRef::JsGlobalRef() :val_(0) {}
-
-void JsGlobalRef::Set(JSNIEnv* jsni_env, JsValue ref) {
-  return (this->*jsni_env->JsGlobalRefSet)(ref);
-}
-
-void JsGlobalRef::Clear(JSNIEnv* jsni_env) {
-  return (this->*jsni_env->JsGlobalRefClear)();
-}
-
-bool JsGlobalRef::IsEmpty(JSNIEnv* jsni_env) const {
-  return (this->*jsni_env->JsGlobalRefIsEmpty)();
-}
-
-// Set the global reference to empty.
-void JsGlobalRef::Empty(JSNIEnv* jsni_env) {
-  return (this->*jsni_env->JsGlobalRefEmpty)();
-}
-
-JsValue JsGlobalRef::ToLocal(JSNIEnv* jsni_env) {
-  return (this->*jsni_env->JsGlobalRefToLocal)();
-}
-
-void JsGlobalRef::SetWeakGCCallback(JSNIEnv* jsni_env, void* args, GCCallback callback) {
-  return (this->*jsni_env->SetWeakGCCallback)(args, callback);
-
-}
-
-
-// LocalRefScope
-// TODO(Jiny). Dulplicate of jsni_env and runtime.
-// But should be done after we fix jsni_env pointer.
-LocalRefScope::LocalRefScope(JSNIEnv* jsni_env, JsRuntime runtime) {
-  // Set jsni_env so decon can use it.
-  jsni_env_ = jsni_env;
-  (this->*jsni_env->LocalRefScopeNew)(runtime);
-}
-
-LocalRefScope::~LocalRefScope() {
-  // Use internal jsni_env_.
-  (this->*jsni_env_->LocalRefScopeDeconstruct)();
-}
-
-JsValue LocalRefScope::SaveRef(JSNIEnv* jsni_env, JsValue val) {
-   return (this->*jsni_env->SaveRef)(val);
-}
-
-void JsException::ThrowError(JSNIEnv* jsni_env, const char* errmsg) {
-  jsni_env->ThrowError(errmsg);
-}
-
-void JsException::ThrowTypeError(JSNIEnv* jsni_env, const char* errmsg) {
-  jsni_env->ThrowTypeError(errmsg);
-}
-
-void JsException::ThrowRangeError(JSNIEnv* jsni_env, const char* errmsg) {
-  jsni_env->ThrowRangeError(errmsg);
-}
-
-
-// NativeCallbackInfo
-// Arguments number.
-int NativeCallbackInfo::Length(JSNIEnv* jsni_env) const {
-  return (this->*jsni_env->NativeCallbackInfoLength)();
-}
-
-// Get the arguments.
-JsValue NativeCallbackInfo::Get(JSNIEnv* jsni_env, int i) const{
-  return (this->*jsni_env->NativeCallbackInfoGet)(i);
-}
-
-// Get the callee function.
-JsFunction NativeCallbackInfo::Callee(JSNIEnv* jsni_env) const{
-  return (this->*jsni_env->NativeCallbackInfoCallee)();
-}
-
-// Get this object.
-JsObject NativeCallbackInfo::This(JSNIEnv* jsni_env) const{
-  return (this->*jsni_env->NativeCallbackInfoThis)();
-}
-
-JsObject NativeCallbackInfo::Holder(JSNIEnv* jsni_env) const{
-  return (this->*jsni_env->NativeCallbackInfoHolder)();
-}
-
-bool NativeCallbackInfo::IsConstructCall(JSNIEnv* jsni_env) const {
-  return (this->*jsni_env->NativeCallbackInfoIsConstructCall)();
-}
-
-JsValue NativeCallbackInfo::Data(JSNIEnv* jsni_env) const {
-  return (this->*jsni_env->NativeCallbackInfoData)();
-}
-
-// Get runtime.
-JsRuntime NativeCallbackInfo::GetRuntime(JSNIEnv* jsni_env) const{
-  return (this->*jsni_env->NativeCallbackInfoGetRuntime)();
-}
-
-// Set return value.
-void NativeCallbackInfo::SetReturnValue(JSNIEnv* jsni_env, JsValue ret) const{
-  return (this->*jsni_env->NativeCallbackInfoSetReturnValue)(ret);
-}
-
-
-// GCCallbackInfo
-JsRuntime GCCallbackInfo::GetRuntime(JSNIEnv* jsni_env) const {
-  return (this->*jsni_env->GCCallbackInfoGetRuntime)();
-}
-
-void* GCCallbackInfo::GetInfo(JSNIEnv* jsni_env) const {
-  return (this->*jsni_env->GCCallbackInfoGetInfo)();
-}
-
-
-// PropertyInfo
-JsObject PropertyInfo::This(JSNIEnv* jsni_env) const {
-  return (this->*jsni_env->PropertyInfoThis)();
-}
-
-JsObject PropertyInfo::Holder(JSNIEnv* jsni_env) const {
-  return (this->*jsni_env->PropertyInfoHolder)();
-}
-
-JsValue PropertyInfo::Data(JSNIEnv* jsni_env) const {
-  return (this->*jsni_env->PropertyInfoData)();
-}
-
-JsRuntime PropertyInfo::GetRuntime(JSNIEnv* jsni_env) const {
-  return (this->*jsni_env->PropertyInfoGetRuntime)();
-}
-
-void PropertyInfo::SetReturnValue(JSNIEnv* jsni_env, JsValue ret) const {
-  return (this->*jsni_env->PropertyInfoSetReturnValue)(ret);
-}
-
-
-// JsRuntime
-JsRuntime::JsRuntime(RuntimeRef rt)
-    : rt_(rt) {}
-
-JsRuntime JsRuntime::GetCurrent(JSNIEnv* jsni_env) {
-  return jsni_env->JsRuntimeGetCurrent();
-}
-
-
-// JsContext
-JsContext::JsContext(ContextRef context)
-    : context_(context) {}
-
-JsContext JsContext::GetCurrentContext(JSNIEnv* jsni_env, JsRuntime runtime) {
-  return jsni_env->GetCurrentContext(runtime);
-}
-
-}  // namespace jsni
-
-// JSNI versions.
+// JSNI Versions.
 #define JSNI_VERSION_1_0 0x00010000
+#define JSNI_VERSION_1_1 0x00010001
 
-#ifdef  __cplusplus
+#if defined(__cplusplus)
 extern "C" {
 #endif
-// This function is exported by loadable shared libs. Just declare here.
-// TODO(jiny): To recv, maybe we should use (JsLocal)void* instead of JsValue.
-// Return jsni version.
-int JSNI_Init(jsni::JSNIEnv* jsni_env, const jsni::JsValue recv);
+/*
+ * This function is called by JSNI, not part of JSNI.
+ */
+int JSNI_Init(JSNIEnv* env, JsValue exports);
 
-// This function is exported by loadable shared libs. Just declare here.
-// Not implemented.
-int JSNI_UnInit(jsni::JSNIEnv* jsni_env, const jsni::JsValue recv, void* reserved);
-#ifdef  __cplusplus
+#if defined(__cplusplus)
 }
 #endif
+
 
 #endif

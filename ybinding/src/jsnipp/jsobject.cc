@@ -1,5 +1,5 @@
 /*
- * Copyright © 2017 Intel Corporation. All Rights Reserved.
+ * Copyright © 2016 Intel Corporation. All Rights Reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -24,40 +24,30 @@
  * ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-/*
- * yunosaudioplayer.h
- *
- * A YunOS-specific implementation of AudioPlayerInterface.
- * Streams audio to YunOS through the AudioRender API.
- *
- * author: Nathaniel Chen
- */
+#include "jsobject.h"
+#include "jsarray.h"
+#include "jsfunction.h"
 
-#ifndef YUNOS_AUDIO_PLAYER_H_
-#define YUNOS_AUDIO_PLAYER_H_
+namespace jsnipp {
 
-#include <woogeen/base/audioplayerinterface.h>
-#include <memory>
-#include <audio/AudioRender.h>
+JSObject::JSObject(const JSValue& jsval): JSValue(jsval) {
+    if (is_object())  return;
 
-class YunOSAudioPlayer : public woogeen::base::AudioPlayerInterface {
+    jsval_ = env_->NewObject();
+    if (is_string()) {
+        char* str = env_->GetStringUtf8Chars(jsval_);
+        size_t len = env_->GetStringUtf8Length(jsval_);
+        for (size_t i = 0; i < len; ++i) {
+            JsValue val = env_->NewStringFromUtf8(str + i, 1);
+            env_->SetProperty(jsval_, std::to_string(i).c_str(), val);
+        }
+    }
+}
 
-  public:
-    // @brief Constructor
-    YunOSAudioPlayer(std::unique_ptr<YunOS::AudioRender>);
+void JSObject::defineProperty(const std::string& name, JSPropertyDescriptor descriptor) {
+    JSObject object = JSObject().prototype()["constructor"];
+    JSFunction define = object["defineProperty"];
+    define(object, 3, *this, JSString(name), descriptor);
+}
 
-    // @brief Destructor stops the stream
-    ~YunOSAudioPlayer();
-
-    // @brief Instantiate audio player and initialize, starts stream
-    __attribute__ ((visibility("default")))
-    static std::unique_ptr<YunOSAudioPlayer> Create();
-
-    // @brief Play raw PCM audio through device
-    void PlayAudio(std::unique_ptr<woogeen::base::PCMRawBuffer> buffer) override;
-
-  private:
-    std::unique_ptr<YunOS::AudioRender> yAudioRender;
-};
-
-#endif //YUNOS_AUDIO_PLAYER_H_
+}
