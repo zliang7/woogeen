@@ -24,7 +24,7 @@ test -f "$xmake.orig" || mv -f "$xmake" "$xmake.orig"
 while read -r line; do
     case $st in
         0)  test "$line" = "# thirdparty" && st=1;;
-        1)  if test "$line" = "${line%\\}"; then
+        1)  if test -n "$line" -a "$line" = "${line%\\}" -a "$line" = "${line#*woogeen}"; then
                 st=0
                 echo "$line \\"
                 echo "    woogeen \\"
@@ -34,4 +34,4 @@ while read -r line; do
     echo "$line"
 done < "$xmake.orig" > "$xmake"
 
-ln -sf "$dir" "$root/third_party/webrtc"
+test -e "$root/third_party/webrtc" || ln -sf "$dir" "$root/third_party/webrtc"

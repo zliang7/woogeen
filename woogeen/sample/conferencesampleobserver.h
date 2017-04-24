@@ -1,0 +1,1 @@
+../src/talk/woogeen/samples/conferencesampleobserver.h
