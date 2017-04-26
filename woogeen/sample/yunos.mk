@@ -3,7 +3,7 @@ LOCAL_PATH := $(call my-dir)
 include $(CLEAR_VARS)
 
 LOCAL_MODULE := woogeen_conf_sample
-LOCAL_REQUIRED_MODULES += libwoogeen libmmwebrtc
+LOCAL_REQUIRED_MODULES += woogeen multimedia-webrtc
 
 LOCAL_SRC_FILES := \
     yunosaudioframegenerator.cc \
