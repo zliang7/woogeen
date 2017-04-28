@@ -22,6 +22,6 @@ LOCAL_C_INCLUDES := \
 LOCAL_CXXFLAGS := -std=c++11 -g -Wno-unused-variable -Wno-unused-result
 
 LOCAL_SHARED_LIBRARIES += liblog libaudio libmmwebrtc libwoogeen
-LOCAL_LDFLAGS += -L$(LOCAL_PATH)/../prebuilt -lasiotoken -lboost_system -lsioclient_tls -lpthread
+LOCAL_LDFLAGS += -L$(LOCAL_PATH)/../prebuilt -lasiotoken -lboost_system -lsioclient -lpthread
 
 include $(BUILD_EXECUTABLE)
