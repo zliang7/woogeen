@@ -26,7 +26,9 @@
 #pragma once
 
 #include <cassert>
+#include <cxxabi.h>
 #include <functional>
+#include <typeinfo>
 
 #include <jsni.h>
 
@@ -58,9 +60,13 @@ public:
             }
 #endif
         }) {
-        JSObject cls = env_->NewObjectWithHiddenField(native_slot + 1);
+        // set function name
+        char *name = abi::__cxa_demangle(typeid(C).name(), NULL, NULL, NULL);
+        setName(name);
+        free(name);
+
+        JSNativeObject<C> cls(nullptr, false, setup);
         class_ = env_->NewGlobalValue(cls);
-        if (setup) setup(cls);
     }
 
     JSNativeConstructor(JSPropertyList list):
@@ -68,10 +74,10 @@ public:
             for (auto& p: list)  cls.setProperty(p.first, p.second);
         }, list, std::placeholders::_1)) {}
 
-    static JSNativeObject<C> adopt(C* native, bool managed = true) {
+    static JSNativeObject<C> adopt(C* native, bool unmanaged = false) {
         assert(class_);
         JSNativeObject<C> result(env_->GetGlobalValue(class_));
-        result.reset(native, managed);
+        result.reset(native, unmanaged);
         return result;
     }
 

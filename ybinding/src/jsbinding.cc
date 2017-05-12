@@ -107,13 +107,13 @@ public:
         return JSString(prefix_ + str);
     }
     // getter
-    JSValue prefix() {
+    JSValue prefix(JSObject) {
         return JSString(prefix_);
     }
     // initializer
     static void setup(JSObject cls) {
         cls.setProperty("echo", JSNativeMethod<Echo, &Echo::echo>());
-        cls.defineProperty("prefix", JSNativeGetter<Echo, &Echo::prefix>());
+        cls.defineProperty("prefix", JSPropertyAccessor(JSNativeGetter<Echo, &Echo::prefix>()));
     }
 private:
     std::string prefix_;

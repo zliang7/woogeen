@@ -30,6 +30,7 @@
 #include <woogeen/base/globalconfiguration.h>
 #include <woogeen/base/stream.h>
 
+#include <Log.h>
 #include <jsnipp.h>
 
 #include "yunosaudioframegenerator.h"
@@ -56,7 +57,7 @@ public:
 
 
 class Stream {
-    JSValue id() {
+    JSValue id(JSObject) {
         return JSString(stream_->Id());
     }
 
@@ -97,7 +98,7 @@ public:
     Stream() = delete;
 
     static void setup(JSObject cls) {
-        cls.defineProperty("id", JSNativeGetter<Stream, &Stream::id>());
+        cls.defineProperty("id", JSPropertyAccessor(JSNativeGetter<Stream, &Stream::id>()));
         cls.setProperty("disableAudio", JSNativeMethod<Stream, &Stream::disableAudio>());
         cls.setProperty("enableAudio", JSNativeMethod<Stream, &Stream::enableAudio>());
         cls.setProperty("disableVideo", JSNativeMethod<Stream, &Stream::disableVideo>());
@@ -132,14 +133,14 @@ public:
 
     static void setup(JSObject cls) {
         Stream::setup(cls);
-        cls.defineProperty("from", JSNativeGetter<RemoteStream, &RemoteStream::from>());
+        cls.defineProperty("from", JSPropertyAccessor(JSNativeGetter<RemoteStream, &RemoteStream::from>()));
     }
 
 private:
     RemoteStream(std::shared_ptr<base::RemoteStream> stream) :
         Stream(stream) {}
 
-    JSValue from() {
+    JSValue from(JSObject) {
         return JSString((*this)->From());
     }
 };

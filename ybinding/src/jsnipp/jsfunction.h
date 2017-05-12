@@ -44,35 +44,21 @@ public:
     JSFunction(JsValue jsval): JSObject(jsval) {
         assert(is_function());
     }
+
+    // null function
     JSFunction(std::nullptr_t null = nullptr):
-        JSObject(null) {}  // invalid function
+        JSObject(null) {}
 
     operator bool() const {
         return is_function();
     }
 
-    JSValue operator()(JSObject self, JSArray args) const {
-        assert(is_function());
-
-        size_t argc = args.length();
-        JsValue jsvals[argc];
-        for (size_t i = 0; i < argc; ++i)
-            jsvals[i] = args[i];
-        return from(env_->CallFunction(jsval_, self, argc, jsvals));
-        /*JSFunction func = getProperty("apply");
-        return func(self, 1, args);*/
+    std::string name() const {
+        return JSString(getProperty("name"));
     }
-    JSValue operator()(JSObject self, size_t argc, /*JSValue*/...) const {
-        assert(is_function());
 
-        JsValue args[argc];
-        va_list va;
-        va_start(va, argc);
-        for (size_t i = 0; i < argc; ++i)
-            args[i] = va_arg(va, JSValue);
-        va_end(va);
-        return from(env_->CallFunction(jsval_, self, argc, args));
-    }
+    JSValue operator()(JSObject self, JSArray args) const;
+    JSValue operator()(JSObject self, size_t argc, /*JSValue*/...) const;
     JSValue operator()(JSObject self = nullptr) const {
         return operator()(self, 0);
     }
@@ -80,12 +66,14 @@ public:
 protected:
     JSFunction(NativeFunctionCallback callback):
         JSObject(env_->NewFunction(callback)) {}
+
+    void setName(const std::string& name);
 };
 
 
-using JSNativeFunctionType = JSValue (*)(JSObject, JSArray);
+using JSFunctionType = JSValue (*)(JSObject, JSArray);
 
-template<JSNativeFunctionType func>
+template<JSFunctionType func>
 class JSNativeFunction: public JSFunction {
 public:
     JSNativeFunction():
@@ -96,5 +84,97 @@ public:
             env->SetReturnValue(info, result);
         }){}
 };
+
+template <class C>
+using JSMethodType = JSValue (C::*)(JSObject, JSArray);
+
+template <class C, JSMethodType<C> method>
+class JSNativeMethod : public JSFunction {
+public:
+    JSNativeMethod() :
+        JSFunction([](JSNIEnv* env, const CallbackInfo info){
+            assert(env == env_);
+            JSNativeObject<C> self(env->GetThis(info));
+            C* native = self.native();
+            if (native) {
+                JsValue result = (native->*method)(self, info);
+                env->SetReturnValue(info, result);
+            } else {
+                //TODO: throw an exception
+            }
+        }){}
+};
+
+template <class C>
+using JSGetterType = JSValue (C::*)(JSObject);
+
+template <class C, JSGetterType<C> getter>
+class JSNativeGetter : public JSFunction {
+public:
+    JSNativeGetter() :
+        JSFunction([](JSNIEnv* env, const CallbackInfo info){
+            assert(env == env_);
+            JSNativeObject<C> self(env->GetThis(info));
+            C* native = self.native();
+            if (native) {
+                env->SetReturnValue(info, (native->*getter)(self));
+            } else {
+                //TODO: throw an exception
+            }
+        }){}
+};
+
+template <class C>
+using JSSetterType = void (C::*)(JSObject, JSValue);
+
+template <class C, JSSetterType<C> setter>
+class JSNativeSetter : public JSFunction {
+public:
+    JSNativeSetter() :
+        JSFunction([](JSNIEnv* env, const CallbackInfo info){
+            assert(env == env_);
+            JSNativeObject<C> self(env->GetThis(info));
+            C* native = self.native();
+            if (native) {
+                (native->*setter)(self, env->GetArg(info, 0));
+            } else {
+                //TODO: throw an exception
+            }
+        }){}
+};
+
+// FYI: http://stackoverflow.com/questions/15148749/pointer-to-class-member-as-a-template-parameter
+// for template argument deduction.
+
+}
+
+
+#include "jsproperty.h"
+
+namespace jsnipp {
+
+inline JSValue JSFunction::operator()(JSObject self, JSArray args) const {
+    size_t argc = args.length();
+    JsValue jsvals[argc];
+    for (size_t i = 0; i < argc; ++i)
+        jsvals[i] = args[i];
+    return from(env_->CallFunction(jsval_, self, argc, jsvals));
+    /*JSFunction func = getProperty("apply");
+    return func(self, 1, args);*/
+}
+
+inline JSValue JSFunction::operator()(JSObject self, size_t argc, ...) const {
+    JsValue args[argc];
+    va_list va;
+    va_start(va, argc);
+    for (size_t i = 0; i < argc; ++i)
+        args[i] = va_arg(va, JSValue);
+    va_end(va);
+    return from(env_->CallFunction(jsval_, self, argc, args));
+}
+
+inline void JSFunction::setName(const std::string& name) {
+    defineProperty("name", JSPropertyData(JSString(name), false, true));
+}
 
 }

@@ -88,58 +88,19 @@ protected:
         JSValue(env_->NewObjectWithHiddenField(cnt)) {}
 };
 
-}
-
-#include "jsfunction.h"
-
-namespace jsnipp {
-
-class JSPropertyDescriptor : public JSObject {
-public:
-    JSPropertyDescriptor(JSValue value, bool writable = false,
-                         bool configurable = false, bool enumerable = false):
-        JSPropertyDescriptor(configurable, enumerable) {
-        setProperty("value", value);
-        setProperty("writable", JSBoolean(writable));
-    }
-    JSPropertyDescriptor(JSFunction getter,
-                         bool configurable = false, bool enumerable = false):
-        JSPropertyDescriptor(configurable, enumerable) {
-        setProperty("get", getter);
-    }
-    JSPropertyDescriptor(JSFunction getter, JSFunction setter,
-                         bool configurable = false, bool enumerable = false):
-        JSPropertyDescriptor(getter, configurable, enumerable) {
-        setProperty("set", setter);
-    }
-
-private:
-    JSPropertyDescriptor(bool configurable, bool enumerable): JSObject() {
-        setProperty("configurable", JSBoolean(configurable));
-        setProperty("enumerable", JSBoolean(enumerable));
-    }
-};
-
-}
-
-namespace jsnipp {
-
-namespace {
-constexpr int native_slot = 0;
-}
 
 template<class C>
 class JSNativeObject : public JSObject {
 public:
-    JSNativeObject(C* native, bool managed, std::function<void(JSObject)> setup):
+    JSNativeObject(C* native, bool unmanaged, std::function<void(JSObject)> setup):
         JSObject(native_slot + 1) {
-        reset(native, managed);
+        reset(native, unmanaged);
         if (setup)  setup(*this);
     }
 
-    JSNativeObject(C* native, bool managed = true,
+    JSNativeObject(C* native, bool unmanaged = false,
                    std::function<void(C&, JSObject)> setup = nullptr):
-        JSNativeObject(native, managed, std::bind(setup, std::ref(*native), std::placeholders::_1)){}
+        JSNativeObject(native, unmanaged, std::bind(setup, std::ref(*native), std::placeholders::_1)){}
 
     JSNativeObject(C* native, JSPropertyList list):
         JSNativeObject(native, true, std::bind([](JSPropertyList list, JSObject obj){
@@ -153,99 +114,63 @@ public:
     C* operator ->() const {
         return native();
     }
-    C* native() const {
-        uintptr_t ptr = reinterpret_cast<uintptr_t>(getPrivate(native_slot));
-        return reinterpret_cast<C*>(ptr & ~1);
-    }
-    void reset(C* native, bool managed = true) {
-#define is_managed(ptr) (!(ptr & 1) ? false : true)
-        uintptr_t ptr = reinterpret_cast<uintptr_t>(getPrivate(native_slot));
-        if (ptr) {
-            C* old = reinterpret_cast<C*>(ptr & ~1);
-            if (old != native && is_managed(ptr))
-                delete old;
-        }
+    C* native() const;
+    void reset(C* native, bool unmanaged = false);
 
-        ptr = (uintptr_t)native | (uintptr_t)(managed && native);
-        setPrivate(native_slot, (void*)ptr);
-        if (is_managed(ptr)) {
+protected:
+    void* getPrivate(int index) const {
+        assert(index < env_->HiddenFieldCount(jsval_) && index >= 0);
+        return env_->GetHiddenField(jsval_, index);
+    }
+    void setPrivate(int index, void* ptr) {
+        assert(index < env_->HiddenFieldCount(jsval_) && index >= 0);
+        return env_->SetHiddenField(jsval_, index, ptr);
+    }
+
+    constexpr static int native_slot = 0;
+};
+
+}
+
+
+#include "jsproperty.h"
+
+namespace jsnipp {
+
+inline void JSObject::defineProperty(const std::string& name,
+                                     JSPropertyDescriptor descriptor) {
+    JSObject object = JSObject().prototype()["constructor"];
+    JSFunction define = object["defineProperty"];
+    define(object, 3, *this, JSString(name), descriptor);
+}
+
+
+template<class C>
+inline C* JSNativeObject<C>::native() const {
+    // The LSB of the pointer is the flag of management.
+    uintptr_t ptr = reinterpret_cast<uintptr_t>(getPrivate(native_slot));
+    return reinterpret_cast<C*>(ptr & ~1);
+}
+
+template<class C>
+inline void JSNativeObject<C>::reset(C* native, bool unmanaged) {
+    C* ptr = this->native();
+    if (ptr != native && ptr == getPrivate(native_slot)) {
+        // release the old managed object
+        delete ptr;
+    }
+
+    if ((ptr = native) != nullptr) {
+        if (unmanaged) {
+            ptr = reinterpret_cast<C*>(reinterpret_cast<uintptr_t>(ptr) | 1);
+        } else {
             env_->SetGCCallback(jsval_, jsval_, [](JSNIEnv*, void* data){
                 JSNativeObject<C> jsobj(reinterpret_cast<JsValue>(data));
                 jsobj.reset(nullptr);
             });
         }
     }
-
-    void* getPrivate(int index) const {
-        if (index >= env_->HiddenFieldCount(jsval_))
-            return nullptr;
-        return env_->GetHiddenField(jsval_, index);
-    }
-    void setPrivate(int index, void* ptr) {
-        assert(index < env_->HiddenFieldCount(jsval_));
-        return env_->SetHiddenField(jsval_, index, ptr);
-    }
-};
-
-template <class C>
-using JSMethodType = JSValue (C::*)(JSObject, JSArray);
-
-template <class C, JSMethodType<C> method>
-class JSNativeMethod : public JSFunction {
-public:
-    JSNativeMethod() :
-        JSFunction([](JSNIEnv* env, const CallbackInfo info){
-            assert(env == env_);
-            JSNativeObject<C> self(env->GetThis(info));
-            C* native = self.native();
-            if (native) {
-                JsValue result = (native->*method)(self, info);
-                env->SetReturnValue(info, result);
-            } else {
-                //TODO: throw an exception
-            }
-        }){}
-};
-
-template <class C>
-using JSGetterType = JSValue (C::*)();
-
-template <class C, JSGetterType<C> getter>
-class JSNativeGetter : public JSFunction {
-public:
-    JSNativeGetter() :
-        JSFunction([](JSNIEnv* env, const CallbackInfo info){
-            assert(env == env_);
-            JSNativeObject<C> self(env->GetThis(info));
-            C* native = self.native();
-            if (native) {
-                env->SetReturnValue(info, (native->*getter)());
-            } else {
-                //TODO: throw an exception
-            }
-        }){}
-};
-
-template <class C>
-using JSSetterType = void (C::*)(JSValue);
-
-template <class C, JSSetterType<C> setter>
-class JSNativeSetter : public JSFunction {
-public:
-    JSNativeSetter() :
-        JSFunction([](JSNIEnv* env, const CallbackInfo info){
-            assert(env == env_);
-            JSNativeObject<C> self(env->GetThis(info));
-            C* native = self.native();
-            if (native) {
-                (native->*setter)(env->GetArg(info, 0));
-            } else {
-                //TODO: throw an exception
-            }
-        }){}
-};
-
-// FYI: http://stackoverflow.com/questions/15148749/pointer-to-class-member-as-a-template-parameter
-// for template argument deduction.
+    setPrivate(native_slot, ptr);
+}
 
 }

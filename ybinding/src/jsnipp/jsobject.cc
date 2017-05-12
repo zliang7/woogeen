@@ -44,10 +44,4 @@ JSObject::JSObject(const JSValue& jsval): JSValue(jsval) {
     }
 }
 
-void JSObject::defineProperty(const std::string& name, JSPropertyDescriptor descriptor) {
-    JSObject object = JSObject().prototype()["constructor"];
-    JSFunction define = object["defineProperty"];
-    define(object, 3, *this, JSString(name), descriptor);
-}
-
 }
