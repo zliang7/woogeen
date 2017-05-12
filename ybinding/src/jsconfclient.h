@@ -49,8 +49,8 @@ public:
     operator base::ClientConfiguration() const {
         base::ClientConfiguration conf;
         conf.max_audio_bandwidth = JSNumber(getProperty("maxAudioBandwidth"));
-        conf.max_video_bandwidth = JSNumber(getProperty("maxAudioBandwidth"));
-        conf.media_codec = JSMediaCodec(getProperty("maxAudioBandwidth"));
+        conf.max_video_bandwidth = JSNumber(getProperty("maxVideoBandwidth"));
+        conf.media_codec = JSMediaCodec(getProperty("mediaCodec"));
         JSArray servers = JSArray(getProperty("iceServers"));
         for (size_t i = 0; i < servers.length(); ++i) {
             base::IceServer server(JSIceServer(servers[i]));
@@ -108,9 +108,9 @@ private:
 class ConferenceClient : conference::ConferenceClientObserver {
 public:
     ConferenceClient(JSObject, JSArray args) {
+        static_assert(sizeof(base::ClientConfiguration) == sizeof(conference::ConferenceClientConfiguration), "");
         base::ClientConfiguration conf  = JSClientConfiguration(args[0]);
-        conference::ConferenceClientConfiguration confconf;
-        memcpy(&confconf, (void*)&conf, sizeof(confconf));
+        auto confconf = static_cast<conference::ConferenceClientConfiguration&>(conf);
         client_ = std::make_shared<conference::ConferenceClient>(confconf);
         client_->AddObserver(*this);
     }
@@ -122,6 +122,7 @@ public:
 
         client_->Join(token,
             [=](std::shared_ptr<conference::User> user) {
+                // FIXME: javascript function must be called on main thread!
                 if (resolve)  resolve(nullptr, 1, JSUser(*user));
             },
             [=](std::unique_ptr<conference::ConferenceException> err) {
@@ -318,6 +319,7 @@ private:
         YUNOS_LOG(Info, LOG_TAG, "%s event dispatched", type.c_str());
     }
 
+    // FIXME: dispatchEvent must called on main thread
     void OnStreamAdded(std::shared_ptr<conference::RemoteCameraStream> stream) override {
         dispatchEvent("stream-added", JSArray(RemoteStream::wrap(stream)));
     }
