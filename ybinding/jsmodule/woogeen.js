@@ -7,7 +7,45 @@ var executor = function(method) {
     method.apply(this, args);
 }
 
-var ConferenceClient = function(configuration) {
+function getToken(addr, room_id) {
+    if (addr.indexOf("http") < 0)
+        addr = "http://" + addr + "/createToken";
+    var url = require("url").parse(addr);
+
+    var body = '{"role":"presenter","username":"user"';
+    if (room_id)
+        body += ',"room":"' + room_id + '"';
+    body += '}';
+
+    var options = {
+      "protocol": url.protocol,
+      "host": url.hostname,
+      "port": url.port,
+      "path": url.path,
+      "method":"POST",
+      "headers":{
+        "Accept": "application/json",
+        "Content-Type": "application/json",
+        "Host": url.host,
+        "Content-Length":body.length
+      },
+      "agent":false
+    };
+
+    return new Promise((resolve, reject) => {
+        var token = '';
+        var req = require('http').request(options, (rsp) => {
+            rsp.setEncoding('utf8');
+            rsp.on('data', (chunk) => { token += chunk;});
+            rsp.on('end', () => { resolve(token); });
+            rsp.on('error', (error) => { reject(error); });
+        });
+        req.on('error', (error) => { reject(error); });
+        req.end(body);
+    });
+}
+
+function ConferenceClient(configuration) {
     var client = new bindings.ConferenceClient(configuration);
     Object.defineProperty(this, '_client', {
         'configurable': false,
@@ -17,6 +55,8 @@ var ConferenceClient = function(configuration) {
     });
 }
 ConferenceClient.prototype = {
+    'constructor': ConferenceClient,
+
     'join': function(token) {
         var exec = executor.bind(this._client, this._client.join, token);
         return new Promise(exec);
@@ -102,7 +142,8 @@ ConferenceClient.prototype = {
 var woogeen = {
     ConferenceClient : ConferenceClient,
     LocalCameraStream : bindings.LocalCameraStream,
-    getVideoCaptureDevices : bindings.getVideoCaptureDevices
+    getVideoCaptureDevices : bindings.getVideoCaptureDevices,
+    getToken : getToken
 };
 
 module.exports = woogeen;
