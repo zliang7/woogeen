@@ -36,21 +36,34 @@ namespace jsnipp {
 
 class JSArray final : public JSObject {
 public:
-    JSArray(size_t size = 0):
-        JSObject(env_->NewArray(size)) {}
-    template <typename T = JSValue>
-    JSArray(const std::vector<T>& array): JSArray(array.size()) {
-        for (size_t i = 0; i < array.size(); ++i)
-            env_->SetArrayElement(jsval_, i, from(array[i]));
+    JSArray(): JSObject(env_->NewArray(0)) {}
+
+    template <typename... Ts>
+    JSArray(size_t size, Ts... args):
+        JSObject(env_->NewArray(std::max(size, sizeof...(Ts)))) {
+        reduce_args(sizeof...(Ts), args...);
     }
+/*  template <typename... Ts>
+    JSArray(std::tuple<Ts...> tuple): JSArray(sizeof...(Ts)) {
+        TupleHelper<decltype(tuple), sizeof...(Ts)>::reduce(*this, tuple);
+    }*/
+
     template <typename T = JSValue>
-    JSArray(std::initializer_list<T> init): JSArray(std::vector<T>(init)) {}
+    JSArray(std::initializer_list<T> init): JSArray(init.size()) {
+        size_t i = 0;
+        for (auto& e: init)
+            env_->SetArrayElement(jsval_, i++, from(e));
+    }
 
     JSArray(const JSValue& jsval): JSArray(1) {
-        if (jsval.is_number())
+        if (jsval.is_array())  return;
+
+        if (jsval.is_number()) {
             jsval_ = env_->NewArray(env_->ToDouble(jsval));
-        else
+        } else {
+            jsval_ = env_->NewArray(1);
             env_->SetArrayElement(jsval_, 0, jsval);
+        }
     }
     JSArray(JsValue jsval): JSObject(jsval) {
         assert(is_array());
@@ -74,6 +87,32 @@ public:
     JSValue operator [](int index) const {
         return getElement(index);
     }
+
+private:
+    void reduce_args(size_t length) {}
+    template <typename T, typename... Ts>
+    void reduce_args(size_t length, T first, Ts... args) {
+        size_t index = length - sizeof...(Ts) - 1;
+        setElement(index, JSValue::from(first));
+        reduce_args(length, args...);
+    }
 };
 
+#if 0
+namespace {
+template<class Tuple, std::size_t N>
+struct TupleHelper {
+    static void reduce(JSArray array, const Tuple& tuple) {
+        TupleHelper<Tuple, N-1>::reduce(array, tuple);
+        array.setElement(N-1, JSValue::from(std::get<N-1>(tuple)));
+    }
+};
+template<class Tuple>
+struct TupleHelper<Tuple, 1> {
+    static void reduce(JSArray array, const Tuple& tuple) {
+         array.setElement(0, JSValue::from(std::get<0>(tuple)));
+    }
+};
+}
+#endif
 }

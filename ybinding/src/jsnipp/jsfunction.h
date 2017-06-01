@@ -26,8 +26,6 @@
 #pragma once
 
 #include <cassert>
-#include <cstdarg>
-#include <vector>
 
 #include <jsni.h>
 
@@ -57,10 +55,14 @@ public:
         return JSString(getProperty("name"));
     }
 
-    JSValue operator()(JSObject self, JSArray args) const;
-    JSValue operator()(JSObject self, size_t argc, /*JSValue*/...) const;
-    JSValue operator()(JSObject self = nullptr) const {
-        return operator()(self, 0);
+    JSValue apply(JSObject self, JSArray args) const;
+    template <typename... Ts>
+    JSValue call(JSObject self, Ts... args) const {
+        return apply(self, JSArray(sizeof...(Ts), args...));
+    }
+    template <typename... Ts>
+    JSValue operator()(Ts... args) const {
+        return call(nullptr, args...);
     }
 
 protected:
@@ -73,14 +75,14 @@ protected:
 
 using JSFunctionType = JSValue (*)(JSObject, JSArray);
 
-template<JSFunctionType func>
+template<JSFunctionType function>
 class JSNativeFunction: public JSFunction {
 public:
     JSNativeFunction():
         JSFunction([](JSNIEnv* env, const CallbackInfo info){
             assert(env == env_);
             JSObject self = env->GetThis(info);
-            JsValue result = (*func)(self, info);
+            JsValue result = (*function)(self, info);
             env->SetReturnValue(info, result);
         }){}
 };
@@ -153,24 +155,16 @@ public:
 
 namespace jsnipp {
 
-inline JSValue JSFunction::operator()(JSObject self, JSArray args) const {
+inline JSValue JSFunction::apply(JSObject self, JSArray args) const {
     size_t argc = args.length();
     JsValue jsvals[argc];
     for (size_t i = 0; i < argc; ++i)
         jsvals[i] = args[i];
     return from(env_->CallFunction(jsval_, self, argc, jsvals));
-    /*JSFunction func = getProperty("apply");
-    return func(self, 1, args);*/
-}
-
-inline JSValue JSFunction::operator()(JSObject self, size_t argc, ...) const {
-    JsValue args[argc];
-    va_list va;
-    va_start(va, argc);
-    for (size_t i = 0; i < argc; ++i)
-        args[i] = va_arg(va, JSValue);
-    va_end(va);
-    return from(env_->CallFunction(jsval_, self, argc, args));
+    /* an alternative implementation
+    JSFunction jsapply = getProperty("apply");
+    JsValue arg = args;
+    return from(env_->CallFunction(jsapply, self, 1, &arg));*/
 }
 
 inline void JSFunction::setName(const std::string& name) {

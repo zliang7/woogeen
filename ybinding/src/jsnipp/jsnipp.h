@@ -29,5 +29,6 @@
 #include "jsobject.h"
 #include "jsarray.h"
 #include "jsfunction.h"
+#include "jscallback.h"
 #include "jsconstructor.h"
 #include "jsexception.h"

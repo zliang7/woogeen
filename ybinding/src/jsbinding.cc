@@ -24,23 +24,33 @@
  * ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#include <unistd.h>
+#include <fcntl.h>
+
 #include <string>
 #include <vector>
 
-#include <woogeen/base/deviceutils.h>
+#include <multimedia/webrtc/video_decode_plugin.h>
+#include <multimedia/webrtc/video_encode_plugin.h>
+
+#include <log/Log.h>
+#define LOG_TAG "woogeen"
+
 #include <woogeen/base/globalconfiguration.h>
 
-#include <Log.h>
-#define LOG_TAG "woogeen"
 #include <jsnipp.h>
 
 #include "jsstream.h"
 #include "jsconfclient.h"
 #include "jsfilegenerator.h"
+#include "yunosaudioframegenerator.h"
 
 using namespace woogeen;
 using namespace jsnipp;
+using namespace YUNOS_MM;
 
+#if ENABLE_LOCAL_CAMERA_STREAM
+#include <woogeen/base/deviceutils.h>
 JSValue getVideoCaptureDevices(JSObject, JSArray) {
     JSObject result;
     std::vector<std::string> devices = base::DeviceUtils::VideoCapturerIds();
@@ -54,6 +64,7 @@ JSValue getVideoCaptureDevices(JSObject, JSArray) {
     }
     return result;
 }
+#endif
 
 JSValue setCustomAudioInput(JSObject, JSArray args) {
     JSNativeObject<base::AudioFrameGeneratorInterface> jsobj(args[0]);
@@ -122,19 +133,38 @@ private:
 // JSNI Entry point
 __attribute__ ((visibility("default")))
 int JSNI_Init(JSNIEnv* env, JsValue exports) {
-    YUNOS_LOG(Info, LOG_TAG, "Woogeen JSNI module is loaded");
+    close(1);
+    close(2);
+    int logfd = open("/var/tools/woogeen.log", O_CREAT|O_WRONLY, S_IRWXU);
+    dup2(logfd, 1);
+    dup2(logfd, 2);
+    close(logfd);
+
+    std::unique_ptr<base::VideoDecoderInterface> external_video_decoder(VideoDecodePlugin::create());
+    if (external_video_decoder == nullptr)  return 0;
+    base::GlobalConfiguration::SetVideoDecoderEnabled(std::move(external_video_decoder));
+    std::unique_ptr<base::AudioFrameGeneratorInterface> audio_generator(YunOSAudioFrameGenerator::Create());
+    if (audio_generator == nullptr)  return 0;
+    base::GlobalConfiguration::SetCustomizedAudioInputEnabled(true, move(audio_generator));
+    base::GlobalConfiguration::SetEncodedVideoFrameEnabled(true);
+    std::unique_ptr<base::VideoEncoderInterface> external_encoder(VideoEncodePlugin::create());
+    base::GlobalConfiguration::SetCustomizedVideoEncoderEnabled(true, std::move(external_encoder));
+
+    LOG_I("Woogeen JSNI module is loaded");
     JSValue::setup(env);
     JSObject jsobj(exports);
     jsobj.setProperty("ConferenceClient", JSNativeConstructor<ConferenceClient>(&ConferenceClient::setup));
-    jsobj.setProperty("LocalCameraStream", JSNativeConstructor<LocalCameraStream>(&LocalCameraStream::setup));
     jsobj.setProperty("LocalCustomStream", JSNativeConstructor<LocalCustomStream>(&LocalCustomStream::setup));
     jsobj.setProperty("RemoteStream", JSNativeConstructor<RemoteStream>(&RemoteStream::setup));
     jsobj.setProperty("FileAudioFrameGenerator", JSNativeConstructor<FileAudioFrameGenerator>());
     jsobj.setProperty("FileVideoFrameGenerator", JSNativeConstructor<FileVideoFrameGenerator>());
-    jsobj.setProperty("getVideoCaptureDevices", JSNativeFunction<getVideoCaptureDevices>());
     jsobj.setProperty("setCustomAudioInput", JSNativeFunction<setCustomAudioInput>());
     jsobj.setProperty("setCustomVideoDecoder", JSNativeFunction<setCustomVideoDecoder>());
     jsobj.setProperty("setCustomVideoEncoder", JSNativeFunction<setCustomVideoEncoder>());
+#if ENABLE_LOCAL_CAMERA_STREAM
+    jsobj.setProperty("LocalCameraStream", JSNativeConstructor<LocalCameraStream>(&LocalCameraStream::setup));
+    jsobj.setProperty("getVideoCaptureDevices", JSNativeFunction<getVideoCaptureDevices>());
+#endif
 
     // for jsnipp feature testing
     jsobj.setProperty("Echo", JSNativeConstructor<Echo>(&Echo::setup));
@@ -142,3 +172,21 @@ int JSNI_Init(JSNIEnv* env, JsValue exports) {
     //env->RegisterMethod(exports, "sayHello", SayHello);
     return JSNI_VERSION_1_1;
 }
+
+/*
+#include <webrtc/base/logging.h>
+class LogBridge : public rtc::LogSink {
+public:
+    LogBirdge(int priority): priority_(priority){}
+    void OnLogMessage(const std::string& message) overirde {
+        yunosLogPrint(kLogIdMain, priority_, "woogeen", message.c_str());
+    }
+private:
+    int priority_;
+};
+rtc::LogMessage::SetLogToStderr(false);
+rtc::LogMessage::AddLogToStream(new LogBridge(kLogPriorityVerbose), rtc::LS_VERBOSE);
+rtc::LogMessage::AddLogToStream(new LogBridge(kLogPriorityInfo), rtc::LS_INFO);
+rtc::LogMessage::AddLogToStream(new LogBridge(kLogPriorityWarn), rtc::LS_WARNING);
+rtc::LogMessage::AddLogToStream(new LogBridge(kLogPriorityError), rtc::LS_ERROR);
+*/

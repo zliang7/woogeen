@@ -46,9 +46,8 @@ public:
     JSObject(): JSValue(env_->NewObject()) {}
     JSObject(std::nullptr_t): JSValue(env_->NewNull()) {}
     JSObject(JSPropertyList list): JSObject() {
-        for (auto& p: list) {
+        for (auto& p: list)
             setProperty(p.first.c_str(), p.second);
-        }
     }
 
     JSObject(const JSValue& jsval);
@@ -104,10 +103,12 @@ public:
 
     JSNativeObject(C* native, JSPropertyList list):
         JSNativeObject(native, true, std::bind([](JSPropertyList list, JSObject obj){
-            for (auto& p: list)  obj.setProperty(p.first, p.second);
+            for (auto& p: list)
+                obj.setProperty(p.first, p.second);
         }, list, std::placeholders::_1)){}
 
     JSNativeObject(JsValue jsval): JSObject(jsval) {
+        // TODO: type check with hash code of type_info
         assert(is_object() && env_->HiddenFieldCount(jsval_) > native_slot);
     }
 
@@ -141,7 +142,7 @@ inline void JSObject::defineProperty(const std::string& name,
                                      JSPropertyDescriptor descriptor) {
     JSObject object = JSObject().prototype()["constructor"];
     JSFunction define = object["defineProperty"];
-    define(object, 3, *this, JSString(name), descriptor);
+    define.call(object, *this, name, descriptor);
 }
 
 

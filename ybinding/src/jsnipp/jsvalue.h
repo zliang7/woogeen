@@ -88,6 +88,9 @@ public:
     bool is_typedarray() const { return env_->IsTypedArray(jsval_); }
     bool is_valid() const      { return !env_->IsEmpty(jsval_); }
 
+    bool operator ==(const JSValue& that) const {
+        return false; // TODO
+    }
     operator JsValue() const {
         return jsval_;
     }
@@ -120,6 +123,10 @@ public:
             env()->DeleteGlobalValue(jsgval_);
     }
 
+    operator JSValue() const {
+        assert(jsgval_);
+        return JSValue::from(env()->GetGlobalValue(jsgval_));
+    }
     operator JsGlobalValue() const {
         return jsgval_;
     }
@@ -129,11 +136,6 @@ public:
     bool operator ==(const JSGlobalValue& that) const {
         // FIXME: persistent handle should not be used to identify an object.
         return jsgval_ == that.jsgval_;
-    }
-
-    JSValue newLocalValue() const {
-        assert(jsgval_);
-        return JSValue::from(env()->GetGlobalValue(jsgval_));
     }
 
     void makeWeak(JSNIGCCallback callback, void* data = nullptr) {

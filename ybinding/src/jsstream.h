@@ -25,15 +25,9 @@
  */
 #pragma once
 
-#include <string>
-
-#include <woogeen/base/globalconfiguration.h>
 #include <woogeen/base/stream.h>
 
-#include <Log.h>
 #include <jsnipp.h>
-
-#include "yunosaudioframegenerator.h"
 
 using namespace woogeen;
 using namespace jsnipp;
@@ -97,17 +91,7 @@ class Stream {
 public:
     Stream() = delete;
 
-    static void setup(JSObject cls) {
-        cls.defineProperty("id", JSPropertyAccessor(JSNativeGetter<Stream, &Stream::id>()));
-        cls.setProperty("disableAudio", JSNativeMethod<Stream, &Stream::disableAudio>());
-        cls.setProperty("enableAudio", JSNativeMethod<Stream, &Stream::enableAudio>());
-        cls.setProperty("disableVideo", JSNativeMethod<Stream, &Stream::disableVideo>());
-        cls.setProperty("enableVideo", JSNativeMethod<Stream, &Stream::enableVideo>());
-        cls.setProperty("attachVideoRenderer", JSNativeMethod<Stream, &Stream::attachVideoRenderer>());
-        cls.setProperty("detachVideoRenderer", JSNativeMethod<Stream, &Stream::detachVideoRenderer>());
-        cls.setProperty("attachAudioPlayer", JSNativeMethod<Stream, &Stream::attachAudioPlayer>());
-        cls.setProperty("detachAudioPlayer", JSNativeMethod<Stream, &Stream::detachAudioPlayer>());
-    }
+    static void setup(JSObject cls);
 
 protected:
     Stream(std::shared_ptr<base::Stream> stream) :
@@ -131,10 +115,7 @@ public:
         return JSNativeConstructor<RemoteStream>::adopt(binding);
     }
 
-    static void setup(JSObject cls) {
-        Stream::setup(cls);
-        cls.defineProperty("from", JSPropertyAccessor(JSNativeGetter<RemoteStream, &RemoteStream::from>()));
-    }
+    static void setup(JSObject cls);
 
 private:
     RemoteStream(std::shared_ptr<base::RemoteStream> stream) :
@@ -145,68 +126,30 @@ private:
     }
 };
 
+class LocalCustomStream : public Stream {
+public:
+    LocalCustomStream(JSObject, JSArray args);
+
+    std::shared_ptr<base::LocalCustomizedStream> operator->() const {
+        return std::static_pointer_cast<base::LocalCustomizedStream>(stream_);
+    }
+};
+
+#if ENABLE_LOCAL_CAMERA_STREAM
 class LocalCameraStream : public Stream {
 public:
-    LocalCameraStream(JSObject, JSArray args): Stream(nullptr) {
-        JSParameters param(args[0]);
-        int error = 0;
-        std::unique_ptr<base::AudioFrameGeneratorInterface> audio_generator(YunOSAudioFrameGenerator::Create());
-        base::GlobalConfiguration::SetEncodedVideoFrameEnabled(true);
-        base::GlobalConfiguration::SetCustomizedAudioInputEnabled(true, std::move(audio_generator));
-        stream_ = base::LocalCameraStream::Create(param, error);
-    }
-
-    JSValue close(JSObject, JSArray) {
-        (*this)->Close();
-        return JSUndefined();
-    }
+    LocalCameraStream(JSObject, JSArray args);
 
     std::shared_ptr<base::LocalCameraStream> operator->() const {
         return std::static_pointer_cast<base::LocalCameraStream>(stream_);
     }
 
-    static void setup(JSObject cls) {
-        Stream::setup(cls);
-        cls.setProperty("close", JSNativeMethod<LocalCameraStream, &LocalCameraStream::close>());
-    }
+    static void setup(JSObject cls);
 
 private:
-    class JSParameters : JSObject {
-    public:
-        JSParameters(const JSValue& jsval): JSObject(jsval){}
-        operator base::LocalCameraStreamParameters() const {
-            JSBoolean video(getProperty("videoEnabled"));
-            JSBoolean audio(getProperty("audioEnabled"));
-            base::LocalCameraStreamParameters param(video, audio);
-            param.CameraId(JSString(getProperty("cameraID")));
-            param.StreamName(JSString(getProperty("streamName")));
-            if (hasProperty("fps"))
-                param.Fps(JSNumber(getProperty("fps")));
-            if (hasProperty("resolution")) {
-                base::Resolution res = JSResolution(getProperty("resolution"));
-                if (res.width | res.height)
-                    param.Resolution(res.width, res.height);
-            }
-            return param;
-        }
-    };
-};
-
-class LocalCustomStream: public Stream {
-public:
-    LocalCustomStream(JSObject, JSArray args) : Stream(nullptr) {
-        JSParameters param(args[0]);
-        stream_ = std::make_shared<base::LocalCustomizedStream>(param);
+    JSValue close(JSObject, JSArray) {
+        (*this)->Close();
+        return JSUndefined();
     }
-
-private:
-    class JSParameters : JSObject {
-    public:
-        JSParameters(const JSValue& jsval): JSObject(jsval) {}
-        operator base::LocalCustomizedStreamParameters() const {
-            JSBoolean video(getProperty("videoEnabled"));
-            JSBoolean audio(getProperty("audioEnabled"));
-            return base::LocalCustomizedStreamParameters(video, audio);
-        }
-    };
 };
+#endif

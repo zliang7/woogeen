@@ -35,13 +35,13 @@ public:
         return JSString(prefix_ + str);
     }
     // getter
-    JSValue prefix() {
+    JSValue prefix(JSObject) {
         return JSString(prefix_);
     }
     // initializer
     static void setup(JSObject cls) {
         cls.setProperty("echo", JSNativeMethod<Echo, &Echo::echo>());
-        cls.defineProperty("prefix", JSNativeGetter<Echo, &Echo::prefix>());
+        cls.defineProperty("prefix", JSPropertyAccessor(JSNativeGetter<Echo, &Echo::prefix>()));
     }
 private:
     std::string prefix_;
@@ -74,7 +74,8 @@ int JSNI_Init(JSNIEnv* env, JsValue exports) {
     }));
 
     // register array
-    auto array = JSArray { 1.1, 2.2, 3.3 };
+    //auto array = JSArray { 1.1, 2.2, 3.3 };
+    auto array = JSArray(0, true, 1.1, "hello");
     obj.setProperty("anArray", array);
 
     // register object
