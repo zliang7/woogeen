@@ -75,7 +75,7 @@ typedef std::shared_ptr<conference::ConferenceException> Exception;
 class JSErrorCallback : public JSCallback<void, Exception> {
     using JSCallback::JSCallback;
     JSValue jsnify(Exception& err) const override {
-        return JSString(err->Message());
+        return JSString("Unknwon error"/*err->Message()*/);
     }
 public:
     void operator()(conference::ConferenceException* error) {
@@ -115,7 +115,7 @@ ConferenceClient::ConferenceClient(JSObject, JSArray args) {
                   sizeof(conference::ConferenceClientConfiguration), "");
     base::ClientConfiguration conf = JSClientConfiguration(args[0]);
     auto confconf = static_cast<conference::ConferenceClientConfiguration&>(conf);
-    client_ = std::make_shared<conference::ConferenceClient>(confconf);
+    client_.reset(new conference::ConferenceClient(confconf));
     client_->AddObserver(*this);
 }
 
@@ -161,6 +161,8 @@ JSValue ConferenceClient::subscribe(JSObject, JSArray args) {
 
     client_->Subscribe(jsobj->operator->(),
         [=](std::shared_ptr<base::RemoteStream> stream) {
+            player_ = std::move(YunOSAudioPlayer::Create());
+            stream->AttachAudioPlayer(*player_);
             (*resolve)(stream);
             delete reject;
         },
@@ -370,7 +372,8 @@ void ConferenceClient::dispatchEvent(const std::string& type, Ts... args) {
         auto listener = static_cast<C*>(it->second.get());
         (*listener)(args...);
     }
-    LOG_I("event \"%s\" dispatched", type.c_str());
+    if (listeners_.count(type) > 0)
+        LOG_I("event \"%s\" dispatched", type.c_str());
 }
 
 void ConferenceClient::OnUserJoined(std::shared_ptr<const conference::User> user) {
@@ -386,33 +389,46 @@ void ConferenceClient::OnUserLeft(std::shared_ptr<const conference::User> user) 
     dispatchEvent<JSUserCallback>("user-left", arg);
 }
 void ConferenceClient::OnStreamAdded(std::shared_ptr<conference::RemoteCameraStream> stream) {
+    LOG_I("event \"stream-added\" received: type=camera, id=%s", stream->Id().c_str());
+    stream->DetachAudioPlayer();
+/*  FIXME: js can't determine the type of stream
     auto arg = std::static_pointer_cast<base::RemoteStream>(stream);
-    dispatchEvent<JSStreamCallback>("stream-added", arg);
+    dispatchEvent<JSStreamCallback>("stream-added", arg);*/
 }
 void ConferenceClient::OnStreamAdded(std::shared_ptr<conference::RemoteScreenStream> stream) {
+    LOG_I("event \"stream-added\" received: type=screen, id=%s", stream->Id().c_str());
     auto arg = std::static_pointer_cast<base::RemoteStream>(stream);
     dispatchEvent<JSStreamCallback>("stream-added", arg);
 }
 void ConferenceClient::OnStreamAdded(std::shared_ptr<conference::RemoteMixedStream> stream) {
+    LOG_I("event \"stream-added\" received: type=mixed, id=%s", stream->Id().c_str());
     auto arg = std::static_pointer_cast<base::RemoteStream>(stream);
     dispatchEvent<JSStreamCallback>("stream-added", arg);
 }
 void ConferenceClient::OnStreamRemoved(std::shared_ptr<conference::RemoteCameraStream> stream) {
+    LOG_I("event \"stream-removed\" received: type=camera, id=%s", stream->Id().c_str());
+    stream->DetachAudioPlayer();
     auto arg = std::static_pointer_cast<base::RemoteStream>(stream);
     dispatchEvent<JSStreamCallback>("stream-removed", arg);
 }
-void ConferenceClient::OnMessageReceived(std::string& id, std::string& message) {
-    dispatchEvent<JSMessageCallback>("message-received", id, message);
-}
 void ConferenceClient::OnStreamRemoved(std::shared_ptr<conference::RemoteScreenStream> stream) {
+    LOG_I("event \"stream-removed\" received: type=screen, id=%s", stream->Id().c_str());
+    stream->DetachAudioPlayer();
     auto arg = std::static_pointer_cast<base::RemoteStream>(stream);
     dispatchEvent<JSStreamCallback>("stream-removed", arg);
 }
 void ConferenceClient::OnStreamRemoved(std::shared_ptr<conference::RemoteMixedStream> stream) {
+    LOG_I("event \"stream-removed\" received: type=mixed, id=%s", stream->Id().c_str());
+    stream->DetachAudioPlayer();
     auto arg = std::static_pointer_cast<base::RemoteStream>(stream);
     dispatchEvent<JSStreamCallback>("stream-removed", arg);
 }
+void ConferenceClient::OnMessageReceived(std::string& id, std::string& message) {
+    LOG_I("event \"message-received\" received: id=%s, message=%s", id.c_str(), message.c_str());
+    dispatchEvent<JSMessageCallback>("message-received", id, message);
+}
 void ConferenceClient::OnServerDisconnected() {
+    LOG_I("event \"server-disconnected\" received");
     dispatchEvent<JSCallback<void>>("server-disconnected");
 }
 

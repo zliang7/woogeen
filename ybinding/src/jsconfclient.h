@@ -25,6 +25,7 @@
  */
 #pragma once
 
+#include <memory>
 #include <string>
 #include <unordered_map>
 
@@ -34,6 +35,7 @@
 #include <jsnipp.h>
 
 #include "jsstream.h"
+#include "yunosaudioplayer.h"
 
 using namespace woogeen;
 using namespace jsnipp;
@@ -79,5 +81,6 @@ private:
     void dispatchEvent(const std::string& type, Ts... args);
     std::unordered_multimap<std::string, std::unique_ptr<JSCallbackBase>> listeners_;
 
-    std::shared_ptr<conference::ConferenceClient> client_;
+    std::unique_ptr<conference::ConferenceClient> client_;
+    std::unique_ptr<YunOSAudioPlayer> player_;
 };
