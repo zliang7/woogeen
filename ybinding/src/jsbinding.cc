@@ -24,9 +24,6 @@
  * ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include <unistd.h>
-#include <fcntl.h>
-
 #include <string>
 #include <vector>
 
@@ -40,6 +37,7 @@
 
 #include <jsnipp.h>
 
+#include "logredirector.h"
 #include "jsstream.h"
 #include "jsconfclient.h"
 #include "jsfilegenerator.h"
@@ -133,12 +131,7 @@ private:
 // JSNI Entry point
 __attribute__ ((visibility("default")))
 int JSNI_Init(JSNIEnv* env, JsValue exports) {
-    close(1);
-    close(2);
-    int logfd = open("/var/tools/woogeen.log", O_CREAT|O_WRONLY, S_IRWXU);
-    dup2(logfd, 1);
-    dup2(logfd, 2);
-    close(logfd);
+    RedirectWoogeenLog("woogeen");
 
     std::unique_ptr<base::VideoDecoderInterface> external_video_decoder(VideoDecodePlugin::create());
     if (external_video_decoder == nullptr)  return 0;
@@ -172,21 +165,3 @@ int JSNI_Init(JSNIEnv* env, JsValue exports) {
     //env->RegisterMethod(exports, "sayHello", SayHello);
     return JSNI_VERSION_1_1;
 }
-
-/*
-#include <webrtc/base/logging.h>
-class LogBridge : public rtc::LogSink {
-public:
-    LogBirdge(int priority): priority_(priority){}
-    void OnLogMessage(const std::string& message) overirde {
-        yunosLogPrint(kLogIdMain, priority_, "woogeen", message.c_str());
-    }
-private:
-    int priority_;
-};
-rtc::LogMessage::SetLogToStderr(false);
-rtc::LogMessage::AddLogToStream(new LogBridge(kLogPriorityVerbose), rtc::LS_VERBOSE);
-rtc::LogMessage::AddLogToStream(new LogBridge(kLogPriorityInfo), rtc::LS_INFO);
-rtc::LogMessage::AddLogToStream(new LogBridge(kLogPriorityWarn), rtc::LS_WARNING);
-rtc::LogMessage::AddLogToStream(new LogBridge(kLogPriorityError), rtc::LS_ERROR);
-*/

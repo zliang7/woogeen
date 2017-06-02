@@ -6,6 +6,7 @@ LOCAL_MODULE := woogeen_jsni
 LOCAL_CALL_BY_XMAKE_CONF := true
 
 LOCAL_SRC_FILES := \
+	src/logredirector.cc \
 	src/jsstream.cc \
 	src/jsconfclient.cc \
 	src/jsbinding.cc \
@@ -22,7 +23,7 @@ LOCAL_SRC_FILES += \
 #LOCAL_SRC_FILES += $(wildcard src/dummy/*.cc)
 
 # Flags passed to both C and C++ files.
-LOCAL_CXXFLAGS := -std=c++14 -fvisibility=hidden -Wno-unused-variable -Wno-unused-result
+LOCAL_CXXFLAGS := -std=c++14 -fvisibility=hidden -Wno-unused-variable -DLOGREDIR_SINK
 
 # Include paths placed before CFLAGS/CPPFLAGS
 LOCAL_C_INCLUDES := \
@@ -34,7 +35,7 @@ LOCAL_C_INCLUDES := \
 	$(multimedia-webrtc-includes) \
 	$(v8-includes)
 
-LOCAL_REQUIRED_MODULES += base multimedia-webrtc
+LOCAL_REQUIRED_MODULES += base jsnihelper multimedia-webrtc
 ifneq ($(WOOGEEN_SDK_BIN),)
 LOCAL_REQUIRED_MODULES += woogeen_bin
 else
