@@ -45,7 +45,6 @@
 #endif
 
 #define SAMPLE_RATE 48000
-#define BUFFER_SIZE 2048
 #define FRAME_COUNT 1024
 
 YunOSAudioPlayer::YunOSAudioPlayer(std::unique_ptr<YunOS::AudioRender> render) {
@@ -86,5 +85,5 @@ YunOSAudioPlayer* YunOSAudioPlayer::Create() {
 //Play PCM audio stream
 void YunOSAudioPlayer::PlayAudio(std::unique_ptr<woogeen::base::PCMRawBuffer> buffer) {
   //write to YunOS AudioRender buffer
-  this->yAudioRender->write(buffer->data, BUFFER_SIZE, BLOCKING_MODE);
+  this->yAudioRender->write(buffer->data, sizeof(int16_t) * buffer->number_of_frames * buffer->number_of_channels, BLOCKING_MODE);
 }
