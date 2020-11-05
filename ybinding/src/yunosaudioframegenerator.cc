@@ -46,7 +46,7 @@
 #endif
 
 #define SAMPLE_RATE 48000
-#define BUFFER_SIZE 4096
+#define BUFFER_SIZE 4096  //((SAMPLE_RATE)/1000 * 2 /*16bit*/ * 2 /*channels*/ * 10 /*ms*/)
 
 YunOSAudioFrameGenerator::YunOSAudioFrameGenerator(std::unique_ptr<YunOS::AudioCapture> ac) {
   audio_capture = std::move(ac);

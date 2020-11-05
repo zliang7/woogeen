@@ -92,7 +92,7 @@ TEST(YunOSAudioFrameGeneratorTest, GenerateFrames8192) {
 TEST(YunOSAudioFrameGeneratorTest, WriteToFile) {
   std::unique_ptr<YunOSAudioFrameGenerator> audio_frame_generator(YunOSAudioFrameGenerator::Create());
   ASSERT_TRUE(audio_frame_generator) << "Failed to instantiate YunOSAudioFrameGenerator";
-  uint32_t capacity = 4096;
+  uint32_t capacity = 4096; //(48000)/1000 * 2 /*16bit*/ * 2 /*channels*/ * 10 /*ms*/;
   uint8_t buffer [capacity];
   //Open file for writing
   std::ofstream yStream("test.wav", std::ofstream::binary);
@@ -103,14 +103,14 @@ TEST(YunOSAudioFrameGeneratorTest, WriteToFile) {
   int i = 0;
   clock_t last_update = std::clock();
   //10 seconds of audio
-  while (i<1000) {
+  while (i < 1000) {
     if ((std::clock() - last_update) > frame_time) {
       uint32_t bytes_read = audio_frame_generator->GenerateFramesForNext10Ms(buffer, capacity);
       ASSERT_EQ(bytes_read, capacity) << "YunOSAudioFrameGenerator: Bytes read did not equal capacity";
       //write buffer to file
       yStream.write((char*)buffer, capacity);
       last_update = std::clock();
-      i++;
+      ++i;
     }
   }
   yStream.close();
