@@ -1,0 +1,12 @@
+# build woogeen
+CXXFLAGS="-fvisibility=default" GYP_DEFINES="clang=0 use_sysroot=0 use_ozone=1 use_gtk=0 include_internal_audio_device=0 include_tests=0 include_examples=0 include_woogeen_samples=0 target_arch=ia32" webrtc/build/gyp_webrtc
+ninja -C out/Release
+
+# build boost
+./bootstrap.sh
+./b2  --with-system --with-random --with-date_time --with-regex --with-thread --with-filesystem --with-atomic runtime-link=static variant=release link=static architecture=x86 address-model=32
+
+# build Socket.Io client library
+mkdir build32
+cd build32
+LDFLAGS=-m32 CXXFLAGS="-m32 -I/usr/include/i386-linux-gnu" CFLAGS="-m32 -I/usr/include/i386-linux-gnu" cmake -DBOOST_ROOT:STRING=~/webrtc/boost -DBOOST_VER:STRING=1.60.0 ..

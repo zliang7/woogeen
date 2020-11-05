@@ -1,0 +1,32 @@
+1. install openh264 library:
+
+   sh video_agent/download_openh264.sh
+   mv libopenh264-1.4.0-linux64.so video_agent/lib/libopenh264.so.0
+
+2. enable H.264 encoding:
+
+   patch < EOF
+--- video_agent/agent.toml~	2017-01-12 17:10:08.717296833 +0800
++++ video_agent/agent.toml	2017-06-01 22:15:58.159498804 +0800
+@@ -42,4 +42,4 @@
+
+ #This configuration is only for software media engine. Hardware graphic acceleration provides H.264 by default
+ #true means OpenH264 is deployed for H.264. Otherwise no support of H.264 in MCU
+-openh264Enabled = false
++openh264Enabled = true
+EOF
+
+4. disable SSL:
+
+   patch < EOF
+--- portal/portal.toml~	2016-09-29 10:12:15.000000000 +0800
++++ portal/portal.toml	2017-04-29 02:52:47.963616515 +0800
+@@ -3,7 +3,7 @@
+ hostname = "" #default: ""
+ ip_address = "" #default: ""
+ port = 8080 #default: 8080
+-ssl = true #default: true
++ssl = false #default: true
+ #The network inferface the socket.io will be bound to in case portal.ip_address (the 'ip_address' item above) is not specified or equal to "".
+ # networkInterface = "eth1"
+EOF

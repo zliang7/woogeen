@@ -1,0 +1,13 @@
+diff --git a/webrtc-webrtcstack/talk/woogeen/sdk/base/webrtcvideorendererimpl.cc b/webrtc-webrtcstack/talk/woogeen/sdk/base/webrtcvideorendererimpl.cc
+index 98f5282..77d03ca 100644
+--- a/webrtc-webrtcstack/talk/woogeen/sdk/base/webrtcvideorendererimpl.cc
++++ b/webrtc-webrtcstack/talk/woogeen/sdk/base/webrtcvideorendererimpl.cc
+@@ -34,7 +34,7 @@ void WebrtcVideoRendererNativeImpl::OnFrame(const cricket::VideoFrame& frame) {
+     encodedFrame->SetFrameInfo(nativeHandleBuffer->buffer_, nativeHandleBuffer->length_, frame.GetTimeStamp());
+ 
+     // Chunbo used to dump the h264 stream
+-    if (0) {
++    if (1) {
+       if (fd_ == nullptr) {
+         fd_ = fopen("/tmp/VideoDecoderBefore.h264", "ab");
+       }
