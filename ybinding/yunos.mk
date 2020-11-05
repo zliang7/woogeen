@@ -81,17 +81,19 @@ LOCAL_MODULE := woogeen_audioplayer_test
 LOCAL_CALL_BY_XMAKE_CONF := true
 
 LOCAL_SRC_FILES := \
+	src/yunosaudioplayer.cc \
 	src/yunosaudioplayer_unittest.cc
 
 LOCAL_CXXFLAGS := -std=c++11 -Wno-unused-variable
 
 LOCAL_C_INCLUDES := \
 	$(XMAKE_ROOTFS)/usr/include \
+	$(base-includes) \
 	$(audioserver-includes) \
 	$(corefoundation-includes) \
 	$(gtest-includes)
 
-LOCAL_REQUIRED_MODULES += base woogeen_jsni
-LOCAL_SHARED_LIBRARIES += libbase liblog libaudio libcore_foundation libgtest libgtest_main woogeen_jsni
+LOCAL_REQUIRED_MODULES += base
+LOCAL_SHARED_LIBRARIES += libbase liblog libaudio libcore_foundation libgtest libgtest_main
 
 include $(BUILD_EXECUTABLE)

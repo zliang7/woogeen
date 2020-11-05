@@ -161,7 +161,7 @@ JSValue ConferenceClient::subscribe(JSObject, JSArray args) {
 
     client_->Subscribe(jsobj->operator->(),
         [=](std::shared_ptr<base::RemoteStream> stream) {
-            player_ = std::move(YunOSAudioPlayer::Create());
+            player_.reset(new YunOSAudioPlayer);
             stream->AttachAudioPlayer(*player_);
             (*resolve)(stream);
             delete reject;

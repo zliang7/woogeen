@@ -36,28 +36,24 @@
 #ifndef YUNOS_AUDIO_PLAYER_H_
 #define YUNOS_AUDIO_PLAYER_H_
 
-#include <woogeen/base/audioplayerinterface.h>
 #include <memory>
 #include <audio/AudioRender.h>
 
+#include <woogeen/base/audioplayerinterface.h>
+
 class YunOSAudioPlayer : public woogeen::base::AudioPlayerInterface {
 
-  public:
-    // @brief Constructor
-    YunOSAudioPlayer(std::unique_ptr<YunOS::AudioRender>);
+public:
+    YunOSAudioPlayer() {}
 
-    // @brief Destructor stops the stream
-    ~YunOSAudioPlayer();
+    virtual ~YunOSAudioPlayer() {
+       if (render_)  render_->stop();
+    }
 
-    // @brief Instantiate audio player and initialize, starts stream
-    __attribute__ ((visibility("default")))
-    static std::unique_ptr<YunOSAudioPlayer> Create();
-
-    // @brief Play raw PCM audio through device
+private:
     void PlayAudio(std::unique_ptr<woogeen::base::PCMRawBuffer> buffer) override;
 
-  private:
-    std::unique_ptr<YunOS::AudioRender> yAudioRender;
+    std::unique_ptr<YunOS::AudioRender> render_;
 };
 
 #endif //YUNOS_AUDIO_PLAYER_H_

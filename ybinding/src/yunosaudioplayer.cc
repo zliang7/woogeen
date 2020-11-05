@@ -33,61 +33,68 @@
  * author: Nathaniel Chen
  */
 
-#include "yunosaudioplayer.h"
 #include <memory>
+
 #include <log/Log.h>
 #include <audio/AudioRender.h>
-#include "stdint.h"
 #include <util/Utils.h>
+
+#include "yunosaudioplayer.h"
 
 #ifndef LOG_TAG
 #define LOG_TAG "YUNOS_AUDIO_PLAYER"
 #endif
 
-#define SAMPLE_RATE 48000
-#define BUFFER_SIZE 2048
-#define FRAME_COUNT 1024
-
-YunOSAudioPlayer::YunOSAudioPlayer(std::unique_ptr<YunOS::AudioRender> render) {
-  yAudioRender = std::move(render);
+static snd_format_t to_pcm_format(int bits_per_sample) {
+    static snd_format_t format_map[] = {
+        SND_FORMAT_INVALID,
+        SND_FORMAT_PCM_8_BIT,
+        SND_FORMAT_PCM_16_BIT,
+        SND_FORMAT_PCM_8_24_BIT,
+        SND_FORMAT_PCM_32_BIT
+    };
+    assert(size_t(bits_per_sample) >> 3 <
+           sizeof(format_map) / sizeof(snd_format_t));
+    return format_map[bits_per_sample >> 3];
 }
-
-YunOSAudioPlayer::~YunOSAudioPlayer() {
-  //Stop the audio stream
-  yAudioRender->stop();
-}
-
-//Instantiate audio player and initialize, start stream
-std::unique_ptr<YunOSAudioPlayer> YunOSAudioPlayer::Create() {
-  std::unique_ptr<YunOSAudioPlayer> audio_player;
-  std::unique_ptr<YunOS::AudioRender> audio_render;
-  //instantiate AudioRender
-  audio_render.reset(YunOS::AudioRender::create(
-    AS_TYPE_DEFAULT,          //stream type
-    SAMPLE_RATE,              //sample rate
-    SND_FORMAT_PCM_16_BIT,    //format
-    ADEV_CHANNEL_OUT_STEREO,  //channel mask
-    FRAME_COUNT
-  ));
-  if (audio_render) {
-    int started = -1;
-    started = audio_render->start();
-    if (started == STATUS_OK) {
-      //instantiate YunOSAudioPlayer
-      audio_player.reset(new YunOSAudioPlayer(std::move(audio_render)));
-    } else {
-      LOG_E("YunOSAudioFrameGenerator: Failed to start AudioRender");
-      audio_player.reset(nullptr);
-    }
-  } else {
-    LOG_E("YunOSAudioPlayer: Failed to instantiate AudioRender");
-    audio_player.reset(nullptr);
-  }
-  return audio_player;
+static adev_channel_mask_t to_channel_mask(size_t number_of_channels) {
+    static adev_channel_mask_t channel_map[] = {
+        ADEV_CHANNEL_NONE,
+        ADEV_CHANNEL_OUT_MONO,
+        ADEV_CHANNEL_OUT_STEREO,
+        ADEV_CHANNEL_INVALID,
+        ADEV_CHANNEL_OUT_QUAD
+    };
+    assert(number_of_channels <
+           sizeof(channel_map) / sizeof(adev_channel_mask_t));
+    return channel_map[number_of_channels];
 }
 
 //Play PCM audio stream
 void YunOSAudioPlayer::PlayAudio(std::unique_ptr<woogeen::base::PCMRawBuffer> buffer) {
-  //write to YunOS AudioRender buffer
-  this->yAudioRender->write(buffer->data, BUFFER_SIZE, BLOCKING_MODE);
+    auto pcm_format = to_pcm_format(buffer->bits_per_sample);
+    auto channel_mask = to_channel_mask(buffer->number_of_channels);
+    uint32_t sample_rate = buffer->sample_rate;
+
+    if (render_ == nullptr ||
+        render_->getFormat() != pcm_format ||
+        render_->getSampleRate() != sample_rate ||
+        render_->getChannelMask() != channel_mask) {
+        // audio format is changed, recreated the render
+        if (render_)  render_->stop();
+        render_.reset(YunOS::AudioRender::create(
+                AS_TYPE_VOICE_CALL, sample_rate, pcm_format, channel_mask));
+        if (!render_ || render_->start() != STATUS_OK) {
+            LOG_E("Failed to %s AudioRender", render_ ? "start" : "create");
+            render_.reset();
+            return;
+        }
+        LOG_I("AudioRender (re)created: sample_rate=%d, number_of_channel=%zu",
+              buffer->sample_rate, buffer->number_of_channels);
+    }
+
+    //write to YunOS AudioRender buffer
+    size_t size = sizeof(int16_t) *
+                  buffer->number_of_frames * buffer->number_of_channels;
+    render_->write(buffer->data, size, BLOCKING_MODE);
 }

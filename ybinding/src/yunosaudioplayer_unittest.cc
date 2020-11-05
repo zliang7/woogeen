@@ -42,11 +42,12 @@
 #define SAMPLE_RATE 48000
 #define AUDIO_CHANNELS 1
 #define NUM_FRAMES 1024
+//#define BUFFER_SIZE ((SAMPLE_RATE)/1000 * 2 /*16bit*/ * 2 /*channels*/ * 10 /*ms*/)
 
 //Play audio from a PCM file
 TEST(YunOSAudioPlayerTest, PlayFromFile) {
   //Create YunOSAudioPlayer
-  std::unique_ptr<YunOSAudioPlayer> player(YunOSAudioPlayer::Create());
+  std::unique_ptr<woogeen::base::AudioPlayerInterface> player(new YunOSAudioPlayer);
   ASSERT_TRUE(player) << "Failed to instantiate YunOSAudioPlayer";
   //Create input file stream from file
   std::ifstream yStream("test.wav", std::ifstream::binary);
