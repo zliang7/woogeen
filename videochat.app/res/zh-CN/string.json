@@ -1,0 +1,23 @@
+{
+    "VIDEO_CHAT_TITLE": "视频电话",
+    "join_video_chat": "加入视频通话",
+    "connect_video_chat": "建立视频通话",
+    "button_cancel": "取消",
+    "button_join": "加入",
+    "copy_metting_address": "复制会议地址",
+    "generate_qr_code": "生成会议二维码",
+    "generate_invatation_code": "生成会议邀请码",
+    "function_not_open": "功能尚未开放",
+    "copy_invatation_code": "复制邀请码",
+    "copy_success": "复制成功",
+    "inptu_invatation_code": "请输入通话邀请码",
+    "join_meeting": "加入通话",
+    "hangup": "挂断",
+    "being_called": "${name}正在视频接入你...",
+    "participant_title": "参与者",
+    "participant_number": "${number}个参与人",
+    "dialogue_title": "对话",
+    "send_message": "发送信息",
+    "send": "发送",
+    "get_invite_code_failed": "获取邀请码失败"
+}

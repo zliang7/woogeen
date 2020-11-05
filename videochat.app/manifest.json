@@ -1,0 +1,46 @@
+{
+    "domain": {
+        "name": "videochat.yunos.com",
+        "use_sdk": 1,
+        "version_code": 1,
+        "version": "1.0.0",
+        "default_locale": "zh-CN",
+        "permission": {
+            "define_permission": [{
+                "name": "PERM_VIDEOPLAYER.permission.yunos.com",
+                "type": "private",
+                "description": "PERM_VIDEOPLAYER.permission.yunos.com"
+            }],
+            "use_permission": [
+                "MOUNT_UNMOUNT_FILESYSTEMS.permission.yunos.com",
+                "WRITE_EXTERNAL_STORAGE.permission.yunos.com",
+                "WRITE_MEDIA_STORAGE.permission.yunos.com",
+                "NETWORK.permission.yunos.com",
+                "PERM_VIDEOPLAYER.permission.yunos.com",
+                "WRITE_SETTINGS.permission.yunos.com",
+                "com.yunos.settings.ACCESS_SETTINGS_SERVICE",
+                "WAKE_LOCK.permission.yunos.com",
+                "DEVICE_POWER.permission.yunos.com",
+                "MEDIA_SERVICE.permission.yunos.com",
+                "VIDEOCAPTURE.permission.yunos.com",
+                "POST_NOTIFICATION.permission.yunos.com",
+                "READ_EXTERNAL_STORAGE.permission.yunos.com",
+                "EXPAND_STATUS_BAR.permission.yunos.com",
+                "MANAGE_VOICE_KEYPHRASES.permission.yunos.com",
+                "RECORD_AUDIO.permission.yunos.com",
+                "MODIFY_AUDIO_SETTINGS.permission.yunos.com",
+                "ACCESS_ALL_EXTERNAL_STORAGE.permission.yunos.com",
+                "MOBILE.permission.yunos.com",
+                "WIFI.permission.yunos.com"
+            ]
+        }
+    },
+
+    "pages": [{
+        "title": "__VAR_VIDEO_CHAT_TITLE__",
+        "uri": "page://videochat.yunos.com/videochat",
+        "content_path": "src/pages/HomePage.js",
+        "main": true,
+        "icon": "res/default/images/icon_videochat.png"
+    }]
+}

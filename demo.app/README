@@ -1,0 +1,31 @@
+0. Build jsni module and place the woogeen_jsni.so file in lib/native/x86/ directory.
+
+1. Configurate IP address and port of MCU server in src/config.json file.
+
+2. Remove /usr/lib/woogeen_jsni.so if exists.
+   If not, app will crash. This is a workaround of JSNI issue.
+
+   $ adb remount
+   $ adb shell rm -f /usr/lib/woogeen_jsni.so
+
+3. Install the app to device.
+
+   $ caf import
+   $ caf install
+
+4. Start surfaceserver before start the app. You can see a colorful triangle on screen.
+
+   $ adb shell surfaceserver
+
+5. Start the app.
+   You can't touch the app icon because the homescreen is covered by surfacesever.
+   To workaround, launch it with yunos studio or caf cli:
+
+   $ caf run
+
+6. (Optional) Quit the surfaceserver with CTRL-C to get rid of the triangle and shadow.
+   But you have to start it again before the next app run.
+
+7. Stop the app:
+
+   $ adb shell pkill webrtc

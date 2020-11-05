@@ -1,0 +1,32 @@
+{
+    "domain": {
+        "name": "webrtc-test.intel.com",
+        "use_sdk": 1,
+        "version_code": 1,
+        "version": "1.0.0",
+        "default_locale": "zh-CN",
+        "permission": {
+            "use_permission": [
+                "MEDIA_SERVICE.permission.yunos.com",
+                "VIDEOCAPTURE.permission.yunos.com",
+                "RECORD_AUDIO.permission.yunos.com",
+                "POST_NOTIFICATION.permission.yunos.com",
+                "MANAGE_VOICE_KEYPHRASES.permission.yunos.com",
+                "NETWORK.permission.yunos.com",
+                "MOBILE.permission.yunos.com",
+                "WIFI.permission.yunos.com",
+                "WRITE_MEDIA_STORAGE.permission.yunos.com",
+                "READ_EXTERNAL_STORAGE.permission.yunos.com",
+                "WRITE_EXTERNAL_STORAGE.permission.yunos.com",
+                "WRITE_SETTINGS.permission.yunos.com"
+            ]
+        }
+    },
+    "pages": [{
+        "title": "WebRTC test",
+        "uri": "page://webrtc-test.intel.com/Main",
+        "content_path": "src/Main.js",
+        "main": true,
+        "icon": "res/default/images/icon.png"
+    }]
+}
